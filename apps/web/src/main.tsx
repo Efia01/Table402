@@ -20,8 +20,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <Routes>
+          {/* Landing stands alone — no chrome, edge to edge. */}
+          <Route path="/" element={<LandingPage />} />
           <Route element={<Layout />}>
-            <Route path="/" element={<LandingPage />} />
             <Route path="/lobby" element={<LobbyPage />} />
             <Route path="/table/:id" element={<TablePage />} />
             <Route path="/hands/:id" element={<HandReplayPage />} />

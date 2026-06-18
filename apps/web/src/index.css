@@ -12,22 +12,25 @@
     height: 100%;
   }
   body {
-    @apply bg-ink text-text font-sans antialiased;
+    @apply bg-noir font-sans text-bone antialiased;
+    /* Soft reddish-black — a warm vignette, never harsh black. */
+    background-color: #0e0809;
     background-image:
-      radial-gradient(900px 500px at 80% -10%, rgba(45, 212, 191, 0.07), transparent 60%),
-      radial-gradient(800px 600px at 10% 110%, rgba(167, 139, 250, 0.06), transparent 55%);
+      radial-gradient(120% 80% at 50% -10%, rgba(231, 162, 60, 0.05), transparent 55%),
+      radial-gradient(100% 100% at 50% 120%, rgba(134, 19, 29, 0.12), transparent 60%),
+      radial-gradient(140% 120% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
     background-attachment: fixed;
   }
   ::selection {
-    background: rgba(56, 224, 200, 0.25);
+    background: rgba(200, 32, 47, 0.32);
+    color: #fff;
   }
-  /* Refined scrollbars */
   *::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 9px;
+    height: 9px;
   }
   *::-webkit-scrollbar-thumb {
-    background: #232838;
+    background: #2a1d20;
     border-radius: 8px;
     border: 2px solid transparent;
     background-clip: padding-box;
@@ -38,39 +41,213 @@
 }
 
 @layer components {
+  /* ── Surfaces ───────────────────────────────────────────── */
   .glass {
-    @apply rounded-2xl border border-edge/70 bg-ink-800/70 backdrop-blur-xl shadow-panel;
+    @apply rounded-xl border border-hairline bg-noir-800/60 shadow-panel backdrop-blur-xl;
   }
   .glass-soft {
-    @apply rounded-xl border border-edgesoft bg-ink-800/50;
+    @apply rounded-lg border border-hairline bg-noir-800/40;
+  }
+  .hairline {
+    border: 1px solid rgba(236, 227, 214, 0.12);
   }
   .grid-bg {
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    background-size: 34px 34px;
+      linear-gradient(to right, rgba(236, 227, 214, 0.02) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(236, 227, 214, 0.02) 1px, transparent 1px);
+    background-size: 38px 38px;
   }
-  .chip {
-    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide;
+
+  /* ── Type ───────────────────────────────────────────────── */
+  .label {
+    @apply font-sans text-[11px] uppercase tracking-widest2 text-bone-faint;
   }
   .stat-num {
     @apply font-mono tabular-nums;
   }
+  .serif {
+    @apply font-display;
+  }
+
+  /* Spotlight-lit headline: carved in white light, fading to cool shadow below. */
+  .headline-lit {
+    background: linear-gradient(180deg, #ffffff 0%, #ffffff 32%, #ece8e1 64%, #a7a098 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    filter: drop-shadow(0 12px 52px rgba(255, 252, 248, 0.22))
+      drop-shadow(0 2px 3px rgba(0, 0, 0, 0.65));
+  }
+
+  /* ── The overhead spotlight ─────────────────────────────── */
+  /* A detailed theatrical light: ambient pool, soft outer pool, a sharp inner
+     beam, paired side rays, a crisp lamp, and a faint reddish floor wash. */
+  .spotlight-stage {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+  }
+  /* Broad ambient pool — white with the faintest warm core. */
+  .spotlight-stage::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(
+        62% 58% at 50% -8%,
+        rgba(255, 251, 246, 0.26),
+        rgba(255, 248, 240, 0.08) 36%,
+        transparent 68%
+      ),
+      radial-gradient(120% 70% at 50% 116%, rgba(134, 19, 29, 0.16), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* Floating motes inside the beam — barely-there texture. */
+  .spotlight-stage::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      radial-gradient(1.5px 1.5px at 46% 30%, rgba(255, 255, 255, 0.5), transparent 60%),
+      radial-gradient(1px 1px at 54% 46%, rgba(255, 255, 255, 0.4), transparent 60%),
+      radial-gradient(1.5px 1.5px at 49% 62%, rgba(255, 255, 255, 0.35), transparent 60%),
+      radial-gradient(1px 1px at 57% 22%, rgba(255, 255, 255, 0.3), transparent 60%),
+      radial-gradient(1px 1px at 43% 52%, rgba(255, 255, 255, 0.3), transparent 60%);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent 60%);
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.8), transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* The main beam cone — whiter, softly blurred. */
+  .spotlight-beam {
+    position: absolute;
+    left: 50%;
+    top: -4%;
+    transform: translateX(-50%);
+    width: min(72vw, 760px);
+    height: 118%;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 253, 250, 0.22),
+      rgba(255, 248, 240, 0.07) 34%,
+      transparent 70%
+    );
+    clip-path: polygon(47% 0%, 53% 0%, 82% 100%, 18% 100%);
+    filter: blur(16px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  /* A sharper inner core beam — gives the light edges definition. */
+  .spotlight-beam::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(255, 255, 255, 0.3),
+      rgba(255, 255, 255, 0.05) 30%,
+      transparent 60%
+    );
+    clip-path: polygon(48.5% 0%, 51.5% 0%, 64% 100%, 36% 100%);
+    filter: blur(5px);
+  }
+  /* Twin fine light rays raking down either side of the beam. */
+  .spotlight-beam::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.16), transparent 64%),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.16), transparent 64%);
+    background-repeat: no-repeat;
+    background-size: 1px 100%, 1px 100%;
+    background-position: 40% 0, 60% 0;
+    filter: blur(1.5px);
+    opacity: 0.7;
+  }
+  /* The bright lamp hotspot — a crisp white filament. */
+  .spotlight-lamp {
+    position: absolute;
+    left: 50%;
+    top: -12px;
+    transform: translateX(-50%);
+    width: 210px;
+    height: 34px;
+    background: radial-gradient(
+      closest-side,
+      rgba(255, 255, 255, 1),
+      rgba(255, 250, 243, 0.55) 46%,
+      rgba(231, 162, 60, 0.18) 70%,
+      transparent
+    );
+    filter: blur(6px);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Poker felt ─────────────────────────────────────────── */
+  .felt {
+    background:
+      radial-gradient(120% 90% at 50% 8%, rgba(231, 162, 60, 0.12), transparent 42%),
+      radial-gradient(ellipse 82% 78% at 50% 42%, #1a7355 0%, #11593f 44%, #0a3a29 100%);
+    box-shadow: var(--tw-shadow, 0 0 0 0 transparent);
+  }
+
+  /* ── Buttons ────────────────────────────────────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-edge bg-ink-700/60 px-3.5 py-2 text-sm font-medium text-text/90 transition hover:border-neon/50 hover:text-text hover:shadow-glow;
+    @apply inline-flex items-center justify-center gap-2 rounded-[3px] border border-hairline bg-noir-700/50 px-4 py-2 text-sm font-medium tracking-wide text-bone/90 transition;
+  }
+  .btn:hover {
+    @apply border-crimson/50 text-bone;
+    box-shadow: 0 0 26px -8px rgba(200, 32, 47, 0.5);
   }
   .btn-primary {
-    @apply border-neon/40 bg-neon/10 text-neon hover:bg-neon/15;
+    @apply border-crimson/60 bg-crimson/[0.14] text-bone;
+  }
+  .btn-primary:hover {
+    @apply bg-crimson/25;
+  }
+  /* The big landing CTA — bold crimson, the red highlight of the room. */
+  .btn-hero {
+    @apply inline-flex items-center gap-3 rounded-[4px] px-11 py-4 font-sans text-base font-semibold uppercase tracking-[0.22em] text-paper transition-all duration-300;
+    background: linear-gradient(180deg, #e2334a 0%, #c8202f 52%, #86131d 100%);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.22) inset,
+      0 10px 34px -10px rgba(200, 32, 47, 0.7),
+      0 0 0 0 rgba(200, 32, 47, 0);
+  }
+  .btn-hero:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      0 1px 0 rgba(255, 255, 255, 0.28) inset,
+      0 14px 44px -10px rgba(226, 51, 74, 0.85),
+      0 0 60px -8px rgba(231, 162, 60, 0.4);
+  }
+
+  /* ── Bits ───────────────────────────────────────────────── */
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-[3px] border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide;
   }
   .link-muted {
-    @apply text-mute transition hover:text-text;
+    @apply text-bone-dim transition hover:text-bone;
   }
-  .label {
-    @apply text-[11px] uppercase tracking-[0.14em] text-ghost;
+  .text-glow {
+    text-shadow: 0 0 24px rgba(231, 162, 60, 0.3);
+  }
+  .corner-label {
+    @apply font-sans text-[10px] uppercase tracking-widest2 text-bone-faint;
+  }
+  /* Break out of a max-width container to span the full viewport width. */
+  .full-bleed {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
   }
 }
 
-/* React Flow theme overrides */
+/* React Flow theme overrides (graph page) */
 .react-flow__attribution {
   display: none;
 }

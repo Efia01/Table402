@@ -17,12 +17,12 @@ export function Panel({
   return (
     <section className={`glass ${className}`}>
       {(title || right) && (
-        <header className="flex items-center justify-between gap-3 border-b border-edge/60 px-4 py-3">
+        <header className="flex items-center justify-between gap-3 border-b border-hairline px-5 py-3.5">
           <h2 className="label">{title}</h2>
           {right}
         </header>
       )}
-      <div className={`p-4 ${bodyClass}`}>{children}</div>
+      <div className={`p-5 ${bodyClass}`}>{children}</div>
     </section>
   );
 }
@@ -31,7 +31,7 @@ export function Stat({
   label,
   value,
   sub,
-  accent = '#e8eaf3',
+  accent = '#ece3d6',
 }: {
   label: string;
   value: ReactNode;
@@ -39,12 +39,12 @@ export function Stat({
   accent?: string;
 }) {
   return (
-    <div className="glass-soft px-3.5 py-3">
+    <div className="glass-soft px-4 py-3.5">
       <div className="label">{label}</div>
-      <div className="stat-num mt-1 text-xl" style={{ color: accent }}>
+      <div className="stat-num mt-1.5 text-2xl text-bone" style={{ color: accent }}>
         {value}
       </div>
-      {sub && <div className="mt-0.5 text-xs text-mute">{sub}</div>}
+      {sub && <div className="mt-1 text-xs text-bone-dim">{sub}</div>}
     </div>
   );
 }
@@ -64,22 +64,25 @@ export function FeeBadge({ kind }: { kind: string | null | undefined }) {
 }
 
 export function StatusDot({ ok }: { ok: boolean }) {
-  const color = ok ? '#34d399' : '#fb7185';
+  const color = ok ? '#34d399' : '#c8202f';
   return (
-    <span className="inline-flex items-center gap-1.5 text-xs" style={{ color }}>
-      <span className="inline-block h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 8px ${color}` }} />
+    <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wide" style={{ color }}>
+      <span
+        className="inline-block h-1.5 w-1.5 rounded-full"
+        style={{ background: color, boxShadow: `0 0 7px -1px ${color}` }}
+      />
       {ok ? 'verified' : 'unverified'}
     </span>
   );
 }
 
 export function LiveDot({ connected }: { connected: boolean }) {
-  const color = connected ? '#34d399' : '#fb7185';
+  const color = connected ? '#34d399' : '#c8202f';
   return (
-    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-mute">
+    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-widest2 text-bone-dim">
       <span
-        className={`inline-block h-2 w-2 rounded-full ${connected ? 'animate-pulseGlow' : ''}`}
-        style={{ background: color, boxShadow: `0 0 8px ${color}` }}
+        className={`inline-block h-1.5 w-1.5 rounded-full ${connected ? 'animate-pulseGlow' : ''}`}
+        style={{ background: color, boxShadow: `0 0 7px -1px ${color}` }}
       />
       {connected ? 'live' : 'offline'}
     </span>
@@ -101,5 +104,5 @@ export function FeeLegend() {
 }
 
 export function Empty({ children }: { children: ReactNode }) {
-  return <div className="py-8 text-center text-sm text-ghost">{children}</div>;
+  return <div className="py-10 text-center text-sm text-bone-faint">{children}</div>;
 }

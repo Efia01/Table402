@@ -39,8 +39,8 @@ export function PlayerHand({
 
   if (!v || !v.isInHand) {
     return (
-      <Panel title="Your hand">
-        <div className="text-sm text-mute">You're seated — waiting for the next hand to be dealt.</div>
+      <Panel title={<span className="font-display text-base normal-case tracking-normal text-bone">Your hand</span>}>
+        <div className="text-sm text-bone-dim">You're seated — waiting for the next hand to be dealt.</div>
       </Panel>
     );
   }
@@ -50,52 +50,58 @@ export function PlayerHand({
   const amount = clamp(raiseTo ?? v.legal.minRaiseTo, v.legal.minRaiseTo, v.legal.maxRaiseTo);
 
   const right = mine.autopilot ? (
-    <span className="chip border-service/40 bg-service/10 text-service">autopilot</span>
+    <span className="chip border-ember/40 bg-ember/[0.08] text-ember">autopilot</span>
   ) : v.isTurn ? (
     <span className="chip border-ok/50 bg-ok/10 text-ok animate-pulseGlow">your turn</span>
   ) : (
-    <span className="text-[11px] text-ghost">waiting…</span>
+    <span className="text-[11px] text-bone-faint">waiting…</span>
   );
 
   return (
-    <Panel title="Your hand" right={right}>
-      <div className="flex flex-wrap items-center gap-5">
+    <Panel title={<span className="font-display text-base normal-case tracking-normal text-bone">Your hand</span>} right={right}>
+      <div className="flex flex-wrap items-center gap-6">
         <CardRow cards={v.holeCards} size="lg" />
-        <div className="text-sm text-mute">
+        <div className="space-y-1 text-sm text-bone-dim">
           <div>
-            stack <span className="stat-num text-text">{v.stack}</span>
+            stack <span className="stat-num text-bone">{v.stack}</span>
           </div>
           <div>
-            to call <span className="stat-num text-text">{v.toCall}</span>
+            to call <span className="stat-num text-bone">{v.toCall}</span>
           </div>
           <div>
-            pot <span className="stat-num text-tabletone">{v.pot}</span> ·{' '}
+            pot <span className="stat-num text-ember">{v.pot}</span> ·{' '}
             <span className="capitalize">{v.street}</span>
           </div>
         </div>
       </div>
 
       {mine.autopilot ? (
-        <div className="mt-3 text-xs text-ghost">Autopilot is on — your agent is playing this seat itself.</div>
+        <div className="mt-3 text-xs text-bone-faint">Autopilot is on — your agent is playing this seat itself.</div>
       ) : v.isTurn ? (
-        <div className="mt-4 space-y-3">
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-5 space-y-3">
+          <div className="flex flex-wrap gap-2.5">
             <button
               className="btn"
-              style={{ color: '#fb7185', borderColor: '#fb718555' }}
+              style={{ color: '#d8606b', borderColor: 'rgba(216,96,107,0.4)' }}
               onClick={() => act.mutate({ type: 'fold' })}
               disabled={act.isPending}
             >
               Fold
             </button>
             {v.legal.types.includes('check') && (
-              <button className="btn" onClick={() => act.mutate({ type: 'check' })} disabled={act.isPending}>
+              <button
+                className="btn"
+                style={{ color: '#ece3d6', borderColor: 'rgba(236,227,214,0.22)' }}
+                onClick={() => act.mutate({ type: 'check' })}
+                disabled={act.isPending}
+              >
                 Check
               </button>
             )}
             {v.legal.types.includes('call') && (
               <button
-                className="btn btn-primary"
+                className="btn"
+                style={{ color: '#e7a23c', borderColor: 'rgba(231,162,60,0.45)' }}
                 onClick={() => act.mutate({ type: 'call' })}
                 disabled={act.isPending}
               >
@@ -104,8 +110,7 @@ export function PlayerHand({
             )}
             {canRaise && (
               <button
-                className="btn"
-                style={{ color: '#a3e635', borderColor: '#a3e63555' }}
+                className="btn btn-primary"
                 onClick={() => act.mutate({ type: isBet ? 'bet' : 'raise', amount })}
                 disabled={act.isPending}
               >
@@ -115,7 +120,7 @@ export function PlayerHand({
             {v.legal.types.includes('all-in') && (
               <button
                 className="btn"
-                style={{ color: '#f5b942', borderColor: '#f5b94255' }}
+                style={{ color: '#e7a23c', borderColor: 'rgba(231,162,60,0.5)', background: 'rgba(231,162,60,0.1)' }}
                 onClick={() => act.mutate({ type: 'all-in' })}
                 disabled={act.isPending}
               >
@@ -131,15 +136,15 @@ export function PlayerHand({
                 max={v.legal.maxRaiseTo}
                 value={amount}
                 onChange={(e) => setRaiseTo(Number(e.target.value))}
-                className="flex-1 accent-neon"
+                className="h-1 flex-1 cursor-pointer appearance-none rounded-full bg-noir-600 accent-crimson"
               />
-              <span className="stat-num w-16 text-right text-sm">{amount}</span>
+              <span className="stat-num w-16 text-right text-sm text-bone">{amount}</span>
             </div>
           )}
           {act.isError && <div className="text-xs text-bad">action failed — try again</div>}
         </div>
       ) : (
-        <div className="mt-3 text-sm text-ghost">Waiting for other players to act…</div>
+        <div className="mt-3 text-sm text-bone-faint">Waiting for other players to act…</div>
       )}
     </Panel>
   );

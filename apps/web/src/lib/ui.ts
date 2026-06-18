@@ -42,15 +42,15 @@ export function shorten(s: string, head = 6, tail = 4): string {
 export function archetypeColor(arch: string | null | undefined): string {
   switch (arch) {
     case 'tight':
-      return '#38bdf8';
+      return '#6aa9c4';
     case 'aggro':
-      return '#fb7185';
+      return '#c8202f';
     case 'budget':
-      return '#a3e635';
+      return '#46b187';
     case 'random':
-      return '#c084fc';
+      return '#b58bd0';
     default:
-      return '#9aa0b6';
+      return '#b3a99c';
   }
 }
 

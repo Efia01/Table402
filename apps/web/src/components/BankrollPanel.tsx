@@ -9,7 +9,7 @@ export function fmtChips(n: number): string {
 }
 
 function Delta({ n }: { n: number }) {
-  const color = n > 0 ? '#34d399' : n < 0 ? '#fb7185' : '#9aa0b6';
+  const color = n > 0 ? '#34d399' : n < 0 ? '#c8202f' : '#766c61';
   return (
     <span className="stat-num" style={{ color }}>
       {n > 0 ? '+' : ''}
@@ -29,10 +29,10 @@ export function BankrollPanel({ mine, tick }: { mine: MineStatus; tick: string }
 
   return (
     <Panel
-      title="Your bankroll & P&L"
+      title={<span className="font-display text-base normal-case tracking-normal text-bone">Your bankroll &amp; P&amp;L</span>}
       right={
         d ? (
-          <span className="text-[11px] text-ghost">
+          <span className="text-[11px] text-bone-faint">
             {d.handsPlayed} hand{d.handsPlayed === 1 ? '' : 's'} played
           </span>
         ) : null
@@ -41,40 +41,40 @@ export function BankrollPanel({ mine, tick }: { mine: MineStatus; tick: string }
       {d ? (
         <>
           <div className="flex flex-wrap gap-3">
-            <div className="glass-soft flex-1 px-3.5 py-3">
+            <div className="glass-soft flex-1 px-4 py-3.5">
               <div className="label">Bankroll</div>
-              <div className="stat-num mt-1 text-2xl text-text">{fmtChips(d.bankroll)}</div>
+              <div className="mt-1.5 font-display text-3xl text-bone">{fmtChips(d.bankroll)}</div>
             </div>
-            <div className="glass-soft flex-1 px-3.5 py-3">
+            <div className="glass-soft flex-1 px-4 py-3.5">
               <div className="label">Net P&amp;L (all hands)</div>
-              <div className="mt-1 text-2xl">
+              <div className="mt-1.5 text-3xl">
                 <Delta n={d.cumulative} />
               </div>
             </div>
           </div>
 
-          <div className="mt-3 max-h-56 overflow-auto">
+          <div className="mt-4 max-h-56 overflow-auto">
             {d.log.length === 0 ? (
               <Empty>No hands yet — play one to start your log.</Empty>
             ) : (
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="label border-b border-edge/60 text-left">
-                    <th className="py-1.5 pr-2 font-normal">hand</th>
-                    <th className="py-1.5 pr-2 text-right font-normal">buy-in</th>
-                    <th className="py-1.5 pr-2 text-right font-normal">result</th>
-                    <th className="py-1.5 text-right font-normal">bankroll</th>
+                  <tr className="label border-b border-hairline text-left">
+                    <th className="py-2 pr-2 font-normal">hand</th>
+                    <th className="py-2 pr-2 text-right font-normal">buy-in</th>
+                    <th className="py-2 pr-2 text-right font-normal">result</th>
+                    <th className="py-2 text-right font-normal">bankroll</th>
                   </tr>
                 </thead>
                 <tbody>
                   {d.log.map((e) => (
-                    <tr key={e.handId} className="border-b border-edgesoft/50">
-                      <td className="py-1.5 pr-2 text-mute">#{e.handNumber}</td>
-                      <td className="stat-num py-1.5 pr-2 text-right text-mute">{fmtChips(e.buyIn)}</td>
-                      <td className="py-1.5 pr-2 text-right">
+                    <tr key={e.handId} className="border-b border-hairline/60 transition hover:bg-noir-700/30">
+                      <td className="py-2 pr-2 text-bone-dim">#{e.handNumber}</td>
+                      <td className="stat-num py-2 pr-2 text-right tabular-nums text-bone-dim">{fmtChips(e.buyIn)}</td>
+                      <td className="py-2 pr-2 text-right tabular-nums">
                         <Delta n={e.delta} />
                       </td>
-                      <td className="stat-num py-1.5 text-right text-text">{fmtChips(e.bankrollAfter)}</td>
+                      <td className="stat-num py-2 text-right tabular-nums text-bone">{fmtChips(e.bankrollAfter)}</td>
                     </tr>
                   ))}
                 </tbody>
