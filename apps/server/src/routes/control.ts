@@ -11,18 +11,18 @@ export function registerControlRoutes(
   void ctx;
 
   app.post('/agents/start', async (req, reply) => {
-    const { clientId, archetype, name, autopilot } = (req.body ?? {}) as {
+    const { clientId, archetype, name, buyIn } = (req.body ?? {}) as {
       clientId?: string;
       archetype?: string;
       name?: string;
-      autopilot?: boolean;
+      buyIn?: number;
     };
     if (!clientId) {
       reply.code(400);
       return { ok: false, error: 'clientId is required' };
     }
     try {
-      const mine = await controller.start(clientId, { archetype, name, autopilot });
+      const mine = await controller.start(clientId, { archetype, name, buyIn });
       return { ok: true, mine };
     } catch (err) {
       reply.code(409);

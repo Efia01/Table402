@@ -46,6 +46,8 @@ export interface AgentControlStatus {
   userCount: number;
   botCount: number;
   seated: number;
+  /** Persistent bank account for this browser's player (default if never played). */
+  bankroll: number;
 }
 
 export interface AgentViewDTO {
@@ -179,7 +181,7 @@ export const api = {
   graph: (id: string) => get<{ graph: GraphDTO }>(`/hands/${id}/graph`),
   agentStatus: (clientId: string) =>
     get<AgentControlStatus>(`/agents/status?clientId=${encodeURIComponent(clientId)}`),
-  startAgent: (clientId: string, opts: { name?: string; autopilot?: boolean }) =>
+  startAgent: (clientId: string, opts: { name?: string; archetype?: string; buyIn?: number }) =>
     post<{ ok: boolean; mine?: MineStatus; error?: string }>('/agents/start', { clientId, ...opts }),
   stopAgent: (clientId: string) =>
     post<{ ok: boolean; stopped?: boolean }>('/agents/stop', { clientId }),

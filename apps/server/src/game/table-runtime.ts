@@ -44,6 +44,8 @@ interface Seat {
   bankroll: number;
   /** This hand's buy-in (so we can compute profit/loss at the end). */
   buyIn: number;
+  /** Optional player-chosen per-hand buy-in cap (chips). Defaults to the table cap. */
+  requestedBuyIn?: number;
   sessionId: string | null;
 }
 
@@ -195,6 +197,7 @@ export class TableRuntime {
     did: string;
     seatReceipt: MppReceipt;
     sessionAuth?: SessionAuthorization;
+    requestedBuyIn?: number;
   }): Promise<{ seatIndex: number; sessionId: string | null }> {
     if (this.seats.some((s) => s?.agentId === input.agentId)) {
       throw Object.assign(new Error('agent already seated'), { statusCode: 409 });
@@ -238,6 +241,8 @@ export class TableRuntime {
       stack: Math.min(this.cfg.startingChips, bankroll),
       bankroll,
       buyIn: 0,
+      requestedBuyIn:
+        input.requestedBuyIn && input.requestedBuyIn > 0 ? Math.floor(input.requestedBuyIn) : undefined,
       sessionId,
     };
     this.seats[seatIndex] = seat;
@@ -423,8 +428,10 @@ export class TableRuntime {
       const button = number % live.length;
 
       // Commit buy-ins: move chips from each player's bankroll onto the table.
+      // A player may choose to bring less than the table cap (bankroll management).
       for (const s of live) {
-        s.buyIn = Math.min(BUYIN_CAP, s.bankroll);
+        const cap = Math.min(BUYIN_CAP, s.requestedBuyIn ?? BUYIN_CAP);
+        s.buyIn = Math.min(cap, s.bankroll);
         s.bankroll -= s.buyIn;
         s.stack = s.buyIn;
       }

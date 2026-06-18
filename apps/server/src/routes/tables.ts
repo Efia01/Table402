@@ -60,6 +60,9 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
       const did = receipt.source;
       const address = didToAddress(did);
       const body = JoinRequest.parse(req.body ?? {});
+      // `buyIn` is read raw (not part of the shared JoinRequest schema, which strips unknown keys).
+      const rawBuyIn = Number((req.body as { buyIn?: unknown })?.buyIn);
+      const requestedBuyIn = Number.isFinite(rawBuyIn) && rawBuyIn > 0 ? Math.floor(rawBuyIn) : undefined;
       const agentId = body.agentId ?? `agent-${address.slice(2, 10).toLowerCase()}`;
       const name = body.name ?? agentId;
       const archetype = body.archetype ?? 'random';
@@ -81,6 +84,7 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
           did,
           seatReceipt: receipt,
           sessionAuth: body.session as SessionAuthorization | undefined,
+          requestedBuyIn,
         });
         return { ok: true, seatIndex, sessionId, agentId, did, balance: ctx.balanceOf(address) };
       } catch (err) {

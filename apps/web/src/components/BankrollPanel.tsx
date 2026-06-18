@@ -5,7 +5,8 @@ import { Panel, Empty } from './primitives';
 
 export function fmtChips(n: number): string {
   const sign = n < 0 ? '-' : '';
-  return `${sign}$${Math.abs(Math.round(n)).toLocaleString()}`;
+  // Force en-US grouping so 1000 reads "$1,000", not a locale-ambiguous "$1.000".
+  return `${sign}$${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
 }
 
 function Delta({ n }: { n: number }) {
@@ -46,7 +47,7 @@ export function BankrollPanel({ mine, tick }: { mine: MineStatus; tick: string }
               <div className="mt-1.5 font-display text-3xl text-bone">{fmtChips(d.bankroll)}</div>
             </div>
             <div className="glass-soft flex-1 px-4 py-3.5">
-              <div className="label">Net P&amp;L (all hands)</div>
+              <div className="label">Net P&amp;L (this session)</div>
               <div className="mt-1.5 text-3xl">
                 <Delta n={d.cumulative} />
               </div>

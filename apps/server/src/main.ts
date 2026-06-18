@@ -107,6 +107,7 @@ async function bootstrap(): Promise<void> {
     maxSeats: tableConfig.maxSeats,
     thinkMinMs: config.agentThinkMinMs,
     thinkMaxMs: config.agentThinkMaxMs,
+    startingChips: tableConfig.startingChips,
   });
 
   // --- Service registry (local services + remote discovery) ---

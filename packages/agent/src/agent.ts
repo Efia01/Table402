@@ -12,6 +12,8 @@ export interface AgentEnv {
   thinkMaxMs?: number;
   /** Subscribe to the live feed over WebSocket (default true). Polling is the fallback. */
   useWebSocket?: boolean;
+  /** Optional player-chosen per-hand buy-in cap (chips). Omit for the full table cap. */
+  buyIn?: number;
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -128,6 +130,7 @@ export class AgentRuntime {
             name: this.spec.name,
             archetype: this.spec.archetype,
             session: sessionAuth,
+            ...(this.env.buyIn && this.env.buyIn > 0 ? { buyIn: Math.floor(this.env.buyIn) } : {}),
           }),
         },
       );

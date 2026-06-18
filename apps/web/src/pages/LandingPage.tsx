@@ -1,8 +1,10 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { DEFAULT_TABLE } from '@table402/shared';
+import { JoinTableModal } from '../components/JoinTableModal';
 
 export function LandingPage() {
+  const [joinOpen, setJoinOpen] = useState(false);
   return (
     <section className="spotlight-stage relative flex min-h-screen w-screen flex-col items-center justify-center overflow-hidden px-4 text-center">
       {/* Overhead lamp + beam */}
@@ -57,11 +59,13 @@ export function LandingPage() {
         transition={{ duration: 0.6, delay: 0.45 }}
         className="relative z-10 mt-9"
       >
-        <Link to={`/table/${DEFAULT_TABLE.id}`} className="btn-hero group">
+        <button onClick={() => setJoinOpen(true)} className="btn-hero group">
           Get seated
           <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-        </Link>
+        </button>
       </motion.div>
+
+      <JoinTableModal open={joinOpen} onClose={() => setJoinOpen(false)} defaultTableId={DEFAULT_TABLE.id} />
     </section>
   );
 }

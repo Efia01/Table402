@@ -1,16 +1,16 @@
-import { Link, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { Link, useParams, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { SeatDTO } from '@table402/shared';
 import { api } from '../lib/api';
 import { useTableFeed } from '../lib/ws';
 import { archetypeColor } from '../lib/ui';
 import { PlayingCard, CardRow } from '../components/PlayingCard';
-import { ControlPanel } from '../components/ControlPanel';
 import { PlayerHand } from '../components/PlayerHand';
 import { BankrollPanel, fmtChips } from '../components/BankrollPanel';
+import { JoinTableModal } from '../components/JoinTableModal';
 import { useClientId } from '../lib/clientId';
-import { LiveDot, Panel, Empty } from '../components/primitives';
+import { Panel, Empty } from '../components/primitives';
 
 // Six seats arranged around the oval — pushed to the rail so the table
 // fills the screen from edge to edge.
@@ -103,9 +103,21 @@ function CommunitySlot({ card, index }: { card: string | null; index: number }) 
   );
 }
 
+// Keep the table log readable: drop the noisy MPP/system lines and strip the
+// technical parentheticals (session ids, fee notes) from the rest.
+const LOG_NOISE = /fee skipped|referee failed|commentary failed|escrow|could not open/i;
+function cleanLog(message: string): string {
+  return message
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/^📣\s*/, '')
+    .trim();
+}
+
 export function TablePage() {
   const { id = '' } = useParams();
   const clientId = useClientId();
+  const navigate = useNavigate();
+  const qc = useQueryClient();
   const detail = useQuery({ queryKey: ['table', id], queryFn: () => api.table(id), refetchInterval: 4000 });
   const feed = useTableFeed(id);
 
@@ -115,6 +127,8 @@ export function TablePage() {
     refetchInterval: 2500,
   });
   const mine = statusQ.data?.mine ?? null;
+  // Not seated yet → the join modal gates entry (pick a table & buy-in).
+  const notSeated = statusQ.isSuccess && !mine;
 
   const hand = feed.hand ?? detail.data?.hand ?? null;
   const refetchKey = `${hand?.handId ?? ''}:${hand?.street ?? ''}:${hand?.toActSeat ?? ''}:${hand?.board?.length ?? 0}`;
@@ -137,50 +151,54 @@ export function TablePage() {
 
   const board = hand?.board ?? [];
   const communitySlots: (string | null)[] = Array.from({ length: 5 }, (_, i) => board[i] ?? null);
+  const last = feed.lastComplete;
+  const logs = feed.logs.filter((l) => !LOG_NOISE.test(l.message));
+
+  async function leaveTable() {
+    await api.stopAgent(clientId);
+    await qc.invalidateQueries({ queryKey: ['agentStatus', clientId] });
+    navigate('/');
+  }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-semibold tracking-tight text-bone">
-            {detail.data?.table.name ?? 'Table'}
-          </h1>
-          <div className="mt-1 text-sm text-bone-dim">
-            {hand ? (
-              <>
-                Hand <span className="stat-num text-bone">#{hand.number}</span> ·{' '}
-                <span className="capitalize text-bone">{hand.street}</span> · pot{' '}
-                <span className="stat-num text-ember">{fmtChips(hand.pot)}</span>
-              </>
-            ) : (
-              'Waiting for the next hand…'
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <LiveDot connected={feed.connected} />
-          {feed.lastComplete && (
-            <>
-              <Link to={`/graph/${feed.lastComplete.handId}`} className="btn btn-primary">
-                Receipt graph →
-              </Link>
-              <Link to={`/hands/${feed.lastComplete.handId}`} className="btn">
-                Replay
-              </Link>
-            </>
-          )}
-        </div>
-      </div>
+    <div className="space-y-5">
+      {/* Header — only the table name */}
+      <h1 className="font-display text-3xl font-semibold tracking-tight text-bone sm:text-4xl">
+        {detail.data?.table.name ?? 'Table'}
+      </h1>
 
-      <ControlPanel />
+      {/* Hand-review actions — sit right above the table, on the right */}
+      {last && (
+        <div className="flex items-center justify-end gap-2.5">
+          <Link to={`/graph/${last.handId}`} className="btn btn-primary">
+            Receipt graph →
+          </Link>
+          <Link to={`/hands/${last.handId}`} className="btn btn-primary">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 3v5h5" />
+              <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+            </svg>
+            Replay
+          </Link>
+        </div>
+      )}
 
       {/* ── The felt: full-bleed, edge to edge ───────────────────────── */}
       <div className="full-bleed px-3 sm:px-6">
-        <div className="relative mx-auto h-[clamp(440px,62vh,680px)] w-full">
-          {/* Rail — squared off, only gently rounded at the corners */}
+        <div className="relative mx-auto h-[clamp(470px,72vh,780px)] w-full">
+          {/* Rail — a rectangle with smooth, equal rounded corners */}
           <div
-            className="absolute inset-0 rounded-[14%/26%]"
+            className="absolute inset-0 rounded-[28px]"
             style={{
               background: 'linear-gradient(180deg, #2a1812 0%, #1a0f0b 100%)',
               boxShadow: '0 40px 90px -40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)',
@@ -188,7 +206,7 @@ export function TablePage() {
           />
           {/* Felt */}
           <div
-            className="felt absolute inset-[14px] rounded-[13%/24%]"
+            className="felt absolute inset-[14px] rounded-[22px]"
             style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 0 130px rgba(0,0,0,0.6)' }}
           />
 
@@ -262,43 +280,66 @@ export function TablePage() {
         </div>
 
         <div className="space-y-5">
-          {feed.lastComplete && feed.lastComplete.results.length > 0 && (
-            <Panel title="Last hand · who won & lost">
+          {last && last.results.length > 0 && (
+            <Panel title="Last hand">
+              {last.board.length > 0 && (
+                <div className="mb-3 flex items-center gap-2.5">
+                  <span className="label">Board</span>
+                  <CardRow cards={last.board} size="sm" />
+                </div>
+              )}
               <div className="space-y-1.5">
-                {[...feed.lastComplete.results]
+                {[...last.results]
                   .sort((a, b) => b.delta - a.delta)
-                  .map((r) => (
-                    <div key={r.seat} className="flex items-center justify-between text-sm">
-                      <span className="truncate text-bone-dim">{r.label}</span>
-                      <span
-                        className="stat-num"
-                        style={{ color: r.delta > 0 ? '#46b187' : r.delta < 0 ? '#c8202f' : '#766c61' }}
-                      >
-                        {r.delta > 0 ? '+' : ''}
-                        {fmtChips(r.delta)}
-                      </span>
-                    </div>
-                  ))}
+                  .map((r) => {
+                    const won = last.winners.some((w) => w.seat === r.seat);
+                    return (
+                      <div key={r.seat} className="flex items-center justify-between text-sm">
+                        <span className="flex items-center gap-1.5 truncate text-bone-dim">
+                          {won && <span className="text-ember">♔</span>}
+                          {r.label}
+                        </span>
+                        <span
+                          className="stat-num"
+                          style={{ color: r.delta > 0 ? '#46b187' : r.delta < 0 ? '#c8202f' : '#766c61' }}
+                        >
+                          {r.delta > 0 ? '+' : ''}
+                          {fmtChips(r.delta)}
+                        </span>
+                      </div>
+                    );
+                  })}
               </div>
             </Panel>
           )}
 
           <Panel title="Table log">
-            <div className="max-h-56 space-y-1 overflow-auto text-xs">
-              {feed.logs.length === 0 && <Empty>—</Empty>}
-              {feed.logs.map((l) => (
+            <div className="max-h-48 space-y-1.5 overflow-auto text-xs leading-relaxed">
+              {logs.length === 0 && <Empty>The hand will narrate here.</Empty>}
+              {logs.map((l) => (
                 <div
                   key={l.id}
                   className="text-bone-dim"
                   style={{ color: l.level === 'warn' ? '#e7a23c' : l.level === 'error' ? '#c8202f' : undefined }}
                 >
-                  {l.message}
+                  {cleanLog(l.message)}
                 </div>
               ))}
             </div>
           </Panel>
         </div>
       </div>
+
+      {mine && (
+        <div className="flex justify-end">
+          <button onClick={() => void leaveTable()} className="btn text-bone-dim">
+            Leave table
+          </button>
+        </div>
+      )}
+
+      {/* Join gate — pick a table & buy-in before you can play. */}
+      <JoinTableModal open={notSeated} onClose={() => navigate('/')} defaultTableId={id} />
     </div>
   );
 }

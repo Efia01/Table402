@@ -1,7 +1,10 @@
 import { createHash } from 'node:crypto';
+import { eq } from 'drizzle-orm';
 import { AgentRuntime, ARCHETYPES, ROSTER, budgetFor, type AgentSpec } from '@table402/agent';
 import type { Archetype } from '@table402/shared';
 import type { AppContext } from '../core/context';
+import { db } from '../db/client';
+import { agents as agentsTable, bankrollLog } from '../db/schema';
 
 interface Managed {
   runtime: AgentRuntime;
@@ -16,7 +19,17 @@ export interface ControllerOptions {
   maxSeats: number;
   thinkMinMs: number;
   thinkMaxMs: number;
+  /** Default starting bankroll for a brand-new player (chips). */
+  startingChips: number;
 }
+
+/**
+ * The human's own agent plays autonomously, but waits noticeably longer before
+ * each move than the house bots — leaving a comfortable window to step in and
+ * act manually. If the human doesn't act, the agent decides for them.
+ */
+const USER_THINK_MIN_MS = 6000;
+const USER_THINK_MAX_MS = 9000;
 
 export interface MineStatus {
   agentId: string;
@@ -31,6 +44,8 @@ export interface AgentStatus {
   userCount: number;
   botCount: number;
   seated: number;
+  /** Persistent bankroll for this client's agent (default if they've never played). */
+  bankroll: number;
 }
 
 function pickRandom<T>(arr: readonly T[]): T {
@@ -61,14 +76,18 @@ export class AgentController {
     return `user-${createHash('sha256').update(clientId).digest('hex').slice(0, 12)}`;
   }
 
-  private spawn(spec: AgentSpec): AgentRuntime {
+  private spawn(
+    spec: AgentSpec,
+    override?: { thinkMinMs?: number; thinkMaxMs?: number; buyIn?: number },
+  ): AgentRuntime {
     return new AgentRuntime(spec, {
       baseUrl: this.opts.baseUrl,
       tableId: this.opts.tableId,
-      thinkMinMs: this.opts.thinkMinMs,
-      thinkMaxMs: this.opts.thinkMaxMs,
+      thinkMinMs: override?.thinkMinMs ?? this.opts.thinkMinMs,
+      thinkMaxMs: override?.thinkMaxMs ?? this.opts.thinkMaxMs,
       // poll-only avoids the server opening a WebSocket to itself per agent.
       useWebSocket: false,
+      buyIn: override?.buyIn,
     });
   }
 
@@ -83,13 +102,13 @@ export class AgentController {
   }
 
   /**
-   * Start the caller's single agent (idempotent per clientId). By default the seat
-   * is **human-controlled** (the player acts via the UI). With `autopilot`, the
-   * agent plays itself.
+   * Start the caller's single agent (idempotent per clientId). The seat **always
+   * plays autonomously**, but with a long think window so the human can step in
+   * and act manually at any decision; if they don't, the agent decides for them.
    */
   async start(
     clientId: string,
-    choice: { archetype?: string; name?: string; autopilot?: boolean },
+    choice: { archetype?: string; name?: string; buyIn?: number },
   ): Promise<MineStatus> {
     const existing = this.users.get(clientId);
     if (existing) return this.mine(existing); // one player per user
@@ -101,14 +120,20 @@ export class AgentController {
       ) as Archetype;
       const id = this.agentIdFor(clientId);
       const name = (choice.name ?? '').trim().slice(0, 24) || 'You';
+      // Fresh session: the persistent bankroll carries, but the P&L log + Net P&L
+      // start from zero each time the player takes a seat.
+      await db.delete(bankrollLog).where(eq(bankrollLog.agentId, id));
       const spec: AgentSpec = { id, name, archetype, budget: budgetFor(archetype) };
 
-      const runtime = this.spawn(spec);
+      const runtime = this.spawn(spec, {
+        thinkMinMs: USER_THINK_MIN_MS,
+        thinkMaxMs: USER_THINK_MAX_MS,
+        buyIn: choice.buyIn,
+      });
       const joined = await runtime.join();
       if (!joined) throw new Error('could not seat your agent (table may be full)');
-      // Only run the autonomous play loop in autopilot mode; otherwise the human drives this seat.
-      if (choice.autopilot) runtime.start();
-      this.users.set(clientId, { runtime, spec, autopilot: !!choice.autopilot });
+      runtime.start(); // always autonomous; the human can still override any decision
+      this.users.set(clientId, { runtime, spec, autopilot: true });
     } finally {
       this.starting.delete(clientId);
     }
@@ -173,13 +198,24 @@ export class AgentController {
     }
   }
 
-  status(clientId: string): AgentStatus {
+  async status(clientId: string): Promise<AgentStatus> {
     const m = this.users.get(clientId);
+    // Bank account persists per agent (keyed by clientId), even before being seated.
+    let bankroll = this.opts.startingChips;
+    if (clientId) {
+      const row = await db
+        .select({ bankroll: agentsTable.bankroll })
+        .from(agentsTable)
+        .where(eq(agentsTable.id, this.agentIdFor(clientId)))
+        .get();
+      if (row) bankroll = row.bankroll;
+    }
     return {
       mine: m ? this.mine(m) : null,
       userCount: this.users.size,
       botCount: this.bots.size,
       seated: this.ctx.table.seatedCount(),
+      bankroll,
     };
   }
 

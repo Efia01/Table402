@@ -8,6 +8,32 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n));
 }
 
+// Minimal line icons for the action buttons.
+const ICON = {
+  fold: 'M6 6l12 12M18 6L6 18', // ✕  discard
+  check: 'M5 13l4 4L19 7', // ✓  pass
+  call: 'M5 9h14M5 15h14', // =  match the bet
+  bet: 'M12 19V5M5 12l7-7 7 7', // ↑  put in / raise
+  allin: 'M6 12l6-6 6 6M6 19l6-6 6 6', // ⇈  everything
+};
+function Icon({ d }: { d: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d={d} />
+    </svg>
+  );
+}
+
 /** The seated user's private view: their own hole cards + manual action controls. */
 export function PlayerHand({
   tableId,
@@ -49,35 +75,22 @@ export function PlayerHand({
   const canRaise = isBet || v.legal.types.includes('raise');
   const amount = clamp(raiseTo ?? v.legal.minRaiseTo, v.legal.minRaiseTo, v.legal.maxRaiseTo);
 
-  const right = mine.autopilot ? (
-    <span className="chip border-ember/40 bg-ember/[0.08] text-ember">autopilot</span>
-  ) : v.isTurn ? (
+  const right = v.isTurn ? (
     <span className="chip border-ok/50 bg-ok/10 text-ok animate-pulseGlow">your turn</span>
   ) : (
-    <span className="text-[11px] text-bone-faint">waiting…</span>
+    <span className="chip border-ember/40 bg-ember/[0.08] text-ember">auto</span>
   );
 
   return (
     <Panel title={<span className="font-display text-base normal-case tracking-normal text-bone">Your hand</span>} right={right}>
       <div className="flex flex-wrap items-center gap-6">
         <CardRow cards={v.holeCards} size="lg" />
-        <div className="space-y-1 text-sm text-bone-dim">
-          <div>
-            stack <span className="stat-num text-bone">{v.stack}</span>
-          </div>
-          <div>
-            to call <span className="stat-num text-bone">{v.toCall}</span>
-          </div>
-          <div>
-            pot <span className="stat-num text-ember">{v.pot}</span> ·{' '}
-            <span className="capitalize">{v.street}</span>
-          </div>
+        <div className="text-sm text-bone-dim">
+          to call <span className="stat-num text-xl text-bone">{v.toCall}</span>
         </div>
       </div>
 
-      {mine.autopilot ? (
-        <div className="mt-3 text-xs text-bone-faint">Autopilot is on — your agent is playing this seat itself.</div>
-      ) : v.isTurn ? (
+      {v.isTurn ? (
         <div className="mt-5 space-y-3">
           <div className="flex flex-wrap gap-2.5">
             <button
@@ -86,7 +99,7 @@ export function PlayerHand({
               onClick={() => act.mutate({ type: 'fold' })}
               disabled={act.isPending}
             >
-              Fold
+              <Icon d={ICON.fold} /> Fold
             </button>
             {v.legal.types.includes('check') && (
               <button
@@ -95,7 +108,7 @@ export function PlayerHand({
                 onClick={() => act.mutate({ type: 'check' })}
                 disabled={act.isPending}
               >
-                Check
+                <Icon d={ICON.check} /> Check
               </button>
             )}
             {v.legal.types.includes('call') && (
@@ -105,7 +118,7 @@ export function PlayerHand({
                 onClick={() => act.mutate({ type: 'call' })}
                 disabled={act.isPending}
               >
-                Call {v.legal.callAmount}
+                <Icon d={ICON.call} /> Call {v.legal.callAmount}
               </button>
             )}
             {canRaise && (
@@ -114,7 +127,7 @@ export function PlayerHand({
                 onClick={() => act.mutate({ type: isBet ? 'bet' : 'raise', amount })}
                 disabled={act.isPending}
               >
-                {isBet ? 'Bet' : 'Raise to'} {amount}
+                <Icon d={ICON.bet} /> {isBet ? 'Bet' : 'Raise to'} {amount}
               </button>
             )}
             {v.legal.types.includes('all-in') && (
@@ -124,7 +137,7 @@ export function PlayerHand({
                 onClick={() => act.mutate({ type: 'all-in' })}
                 disabled={act.isPending}
               >
-                All-in {v.legal.maxRaiseTo}
+                <Icon d={ICON.allin} /> All-in {v.legal.maxRaiseTo}
               </button>
             )}
           </div>
@@ -144,7 +157,9 @@ export function PlayerHand({
           {act.isError && <div className="text-xs text-bad">action failed — try again</div>}
         </div>
       ) : (
-        <div className="mt-3 text-sm text-bone-faint">Waiting for other players to act…</div>
+        <div className="mt-3 text-sm text-bone-faint">
+          Your agent is playing autonomously — waiting for your turn…
+        </div>
       )}
     </Panel>
   );
