@@ -1,0 +1,43 @@
+{
+  "name": "table402",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A multiplayer poker arena for autonomous agents powered by the Machine Payments Protocol (MPP). Testnet-only simulation.",
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm db:setup && concurrently -n server,web -c cyan,magenta \"pnpm -F @table402/server dev\" \"pnpm -F @table402/web dev\"",
+    "dev:server": "pnpm -F @table402/server dev",
+    "dev:web": "pnpm -F @table402/web dev",
+    "demo": "pnpm -F @table402/agents demo",
+    "build": "pnpm -r --if-present build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "db:setup": "tsx apps/server/src/db/setup.ts",
+    "db:generate": "drizzle-kit generate --config=apps/server/drizzle.config.ts",
+    "agents:list": "pnpm -F @table402/agents list",
+    "agents:discover": "pnpm -F @table402/agents discover",
+    "agents:join": "pnpm -F @table402/agents join",
+    "agents:play": "pnpm -F @table402/agents play"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/node": "^22.10.5",
+    "concurrently": "^9.1.2",
+    "eslint": "^9.17.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^2.1.8"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-ink text-text font-sans antialiased;
+    background-image:
+      radial-gradient(900px 500px at 80% -10%, rgba(45, 212, 191, 0.07), transparent 60%),
+      radial-gradient(800px 600px at 10% 110%, rgba(167, 139, 250, 0.06), transparent 55%);
+    background-attachment: fixed;
+  }
+  ::selection {
+    background: rgba(56, 224, 200, 0.25);
+  }
+  /* Refined scrollbars */
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: #232838;
+    border-radius: 8px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  .glass {
+    @apply rounded-2xl border border-edge/70 bg-ink-800/70 backdrop-blur-xl shadow-panel;
+  }
+  .glass-soft {
+    @apply rounded-xl border border-edgesoft bg-ink-800/50;
+  }
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: 34px 34px;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide;
+  }
+  .stat-num {
+    @apply font-mono tabular-nums;
+  }
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-edge bg-ink-700/60 px-3.5 py-2 text-sm font-medium text-text/90 transition hover:border-neon/50 hover:text-text hover:shadow-glow;
+  }
+  .btn-primary {
+    @apply border-neon/40 bg-neon/10 text-neon hover:bg-neon/15;
+  }
+  .link-muted {
+    @apply text-mute transition hover:text-text;
+  }
+  .label {
+    @apply text-[11px] uppercase tracking-[0.14em] text-ghost;
+  }
+}
+
+/* React Flow theme overrides */
+.react-flow__attribution {
+  display: none;
+}
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+.react-flow__handle {
+  opacity: 0;
+}

@@ -1,0 +1,42 @@
+import type { FastifyInstance } from 'fastify';
+import type { AppContext } from '../core/context';
+import type { AgentController } from '../game/agent-controller';
+
+/** Web-driven agent control: one autonomous player per browser (clientId). */
+export function registerControlRoutes(
+  app: FastifyInstance,
+  ctx: AppContext,
+  controller: AgentController,
+): void {
+  void ctx;
+
+  app.post('/agents/start', async (req, reply) => {
+    const { clientId, archetype, name } = (req.body ?? {}) as {
+      clientId?: string;
+      archetype?: string;
+      name?: string;
+    };
+    if (!clientId) {
+      reply.code(400);
+      return { ok: false, error: 'clientId is required' };
+    }
+    try {
+      const mine = await controller.start(clientId, { archetype, name });
+      return { ok: true, mine };
+    } catch (err) {
+      reply.code(409);
+      return { ok: false, error: (err as Error).message };
+    }
+  });
+
+  app.post('/agents/stop', async (req) => {
+    const { clientId } = (req.body ?? {}) as { clientId?: string };
+    if (!clientId) return { ok: false, error: 'clientId is required' };
+    return { ok: true, stopped: await controller.stop(clientId) };
+  });
+
+  app.get('/agents/status', async (req) => {
+    const clientId = (req.query as { clientId?: string }).clientId ?? '';
+    return controller.status(clientId);
+  });
+}
