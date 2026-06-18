@@ -1,7 +1,7 @@
 import { formatUsd } from '@table402/shared';
 import { ROSTER, AgentRuntime } from '@table402/agent';
 
-const BASE = process.env.TABLE402_API ?? 'http://127.0.0.1:402';
+const BASE = process.env.TABLE402_API ?? 'http://127.0.0.1:4020';
 const TABLE = process.env.TABLE402_TABLE ?? 'neon-six-max-402';
 const TARGET = Number(process.env.DEMO_HANDS ?? 10);
 // The demo is a throughput showcase — paced moderately so it stays watchable but

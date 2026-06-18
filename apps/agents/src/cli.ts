@@ -2,7 +2,7 @@ import { formatUsd } from '@table402/shared';
 import { ROSTER, AgentRuntime } from '@table402/agent';
 import { runDemo } from './demo';
 
-const BASE = process.env.TABLE402_API ?? 'http://127.0.0.1:402';
+const BASE = process.env.TABLE402_API ?? 'http://127.0.0.1:4020';
 const TABLE = process.env.TABLE402_TABLE ?? 'neon-six-max-402';
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

@@ -32,7 +32,7 @@ export interface AppConfig {
 }
 
 export function loadConfig(): AppConfig {
-  const port = envNum('PORT', 402);
+  const port = envNum('PORT', 4020);
   return {
     host: envStr('HOST', '127.0.0.1'),
     port,

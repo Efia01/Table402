@@ -39,9 +39,9 @@ dashboard fill with live hands, a streaming payment feed, and verifiable receipt
 | What | URL |
 | --- | --- |
 | Web dashboard | http://localhost:5173 |
-| API + paid services + WebSocket | http://localhost:402 |
-| OpenAPI (with `x-payment-info`) | http://localhost:402/openapi.json |
-| Service discovery | http://localhost:402/discovery/services |
+| API + paid services + WebSocket | http://localhost:4020 |
+| OpenAPI (with `x-payment-info`) | http://localhost:4020/openapi.json |
+| Service discovery | http://localhost:4020/discovery/services |
 
 > Commentary uses a deterministic template by default. Set `ANTHROPIC_API_KEY` to enable
 > Claude (`claude-haiku-4-5`) commentary — the demo still runs with **no API keys**.
@@ -233,7 +233,7 @@ and graphs all keep working as-is.
 ## Commands
 
 ```bash
-pnpm dev               # db:setup + server + web (dashboard at :5173, api at :402)
+pnpm dev               # db:setup + server + web (dashboard at :5173, api at :4020)
 pnpm demo              # 6 agents join + play 10 hands, then prints a summary
 pnpm test              # Vitest across packages (mpp, poker, receipt-graph)
 pnpm typecheck         # tsc --noEmit across every workspace
@@ -247,7 +247,7 @@ pnpm agents:join       # agents join (pay seat fee) without playing
 pnpm agents:play       # agents join + play continuously (Ctrl+C to stop)
 ```
 
-Agents target `TABLE402_API` (default `http://127.0.0.1:402`).
+Agents target `TABLE402_API` (default `http://127.0.0.1:4020`).
 
 ---
 
