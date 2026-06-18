@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { feeColor, formatUsd } from '../lib/ui';
 import { CardRow } from '../components/PlayingCard';
+import { fmtChips } from '../components/BankrollPanel';
 import { FeeBadge, Panel, StatusDot, Empty } from '../components/primitives';
 
 const BOARD_COUNT: Record<string, number> = { preflop: 0, flop: 3, turn: 4, river: 5, showdown: 5, complete: 5 };
@@ -29,6 +30,7 @@ export function HandReplayPage() {
   const { id = '' } = useParams();
   const handQ = useQuery({ queryKey: ['hand', id], queryFn: () => api.hand(id) });
   const receiptsQ = useQuery({ queryKey: ['handReceipts', id], queryFn: () => api.handReceipts(id) });
+  const resultsQ = useQuery({ queryKey: ['handResults', id], queryFn: () => api.handResults(id) });
 
   const hand = handQ.data?.hand;
   const history = hand?.history as History | undefined;
@@ -130,6 +132,29 @@ export function HandReplayPage() {
 
         {/* Showdown + receipts */}
         <div className="space-y-5">
+          <Panel title="Profit & loss">
+            {resultsQ.data?.results.length ? (
+              <div className="space-y-1">
+                {resultsQ.data.results.map((r) => (
+                  <div key={r.agentId} className="flex items-center justify-between text-sm">
+                    <span className="truncate text-mute">
+                      {r.name} <span className="text-ghost">· buy-in {fmtChips(r.buyIn)}</span>
+                    </span>
+                    <span
+                      className="stat-num"
+                      style={{ color: r.delta > 0 ? '#34d399' : r.delta < 0 ? '#fb7185' : '#9aa0b6' }}
+                    >
+                      {r.delta > 0 ? '+' : ''}
+                      {fmtChips(r.delta)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Empty>No P&amp;L recorded for this hand.</Empty>
+            )}
+          </Panel>
+
           <Panel title="Showdown">
             {history?.result.showdown.filter((s) => s.handName).length ? (
               <div className="space-y-2">

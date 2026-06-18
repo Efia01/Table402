@@ -1,0 +1,158 @@
+{
+  "redirects": [
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "faucet.tempo.xyz"
+        }
+      ],
+      "destination": "https://docs.tempo.xyz/quickstart/faucet",
+      "permanent": false
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "faucet.tempo.xyz"
+        }
+      ],
+      "destination": "https://docs.tempo.xyz/quickstart/faucet",
+      "permanent": false
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "host",
+          "value": "bridge.tempo.xyz"
+        }
+      ],
+      "destination": "https://docs.tempo.xyz/guide/getting-funds",
+      "permanent": false
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "bridge.tempo.xyz"
+        }
+      ],
+      "destination": "https://docs.tempo.xyz/guide/getting-funds",
+      "permanent": false
+    },
+    {
+      "source": "/guide/bridge-usdc-stargate",
+      "destination": "/guide/bridge-layerzero",
+      "permanent": true
+    },
+    {
+      "source": "/guide/bridge-usdc-relay",
+      "destination": "/guide/bridge-relay",
+      "permanent": true
+    },
+    {
+      "source": "/network-upgrades",
+      "destination": "/guide/node/network-upgrades",
+      "permanent": true
+    },
+    {
+      "source": "/AccountKeychain",
+      "destination": "/protocol/transactions/AccountKeychain",
+      "permanent": true
+    },
+    {
+      "source": "/guide/node/validator-config-v2",
+      "destination": "/guide/node/network-upgrades",
+      "permanent": true
+    },
+    {
+      "source": "/accounts/server/compose",
+      "destination": "https://accounts.tempo.xyz/docs/server/handler.compose",
+      "permanent": true
+    },
+    {
+      "source": "/accounts/server/relay",
+      "destination": "https://accounts.tempo.xyz/docs/server/handler.relay",
+      "permanent": true
+    },
+    {
+      "source": "/accounts/server/webAuthn",
+      "destination": "https://accounts.tempo.xyz/docs/server/handler.webAuthn",
+      "permanent": true
+    },
+    {
+      "source": "/accounts",
+      "destination": "https://accounts.tempo.xyz/docs",
+      "permanent": true
+    },
+    {
+      "source": "/accounts/:path*",
+      "destination": "https://accounts.tempo.xyz/docs/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/tip-:id",
+      "destination": "https://github.com/tempoxyz/tempo/blob/main/tips/tip-:id.md",
+      "permanent": true
+    },
+    {
+      "source": "/protocol/tips/tip-:id",
+      "destination": "https://github.com/tempoxyz/tempo/blob/main/tips/tip-:id.md",
+      "permanent": true
+    },
+    {
+      "source": "/learn/stablecoins",
+      "destination": "https://tempo.xyz/learn/what-are-stablecoins",
+      "permanent": true
+    },
+    {
+      "source": "/learn/use-cases/global-payouts",
+      "destination": "https://tempo.xyz/learn/global-payouts",
+      "permanent": true
+    },
+    {
+      "source": "/learn/use-cases/remittances",
+      "destination": "https://tempo.xyz/learn/cross-border-payments",
+      "permanent": true
+    },
+    {
+      "source": "/learn/use-cases/embedded-finance",
+      "destination": "https://tempo.xyz/learn/stablecoin-payments",
+      "permanent": true
+    },
+    {
+      "source": "/learn/use-cases/agentic-commerce",
+      "destination": "https://tempo.xyz/learn/blockchain-payments",
+      "permanent": true
+    },
+    {
+      "source": "/learn/use-cases/payroll",
+      "destination": "https://tempo.xyz/learn/stablecoin-payroll",
+      "permanent": true
+    },
+    {
+      "source": "/learn/use-cases/tokenized-deposits",
+      "destination": "https://tempo.xyz/learn/tokenized-deposits",
+      "permanent": true
+    },
+    {
+      "source": "/learn/use-cases/microtransactions",
+      "destination": "https://tempo.xyz/learn/microtransactions",
+      "permanent": true
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/ingest/static/:path(.*)",
+      "destination": "https://us-assets.i.posthog.com/static/:path"
+    },
+    {
+      "source": "/ingest/:path(.*)",
+      "destination": "https://us.i.posthog.com/:path"
+    }
+  ]
+}

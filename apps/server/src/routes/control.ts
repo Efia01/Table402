@@ -11,22 +11,37 @@ export function registerControlRoutes(
   void ctx;
 
   app.post('/agents/start', async (req, reply) => {
-    const { clientId, archetype, name } = (req.body ?? {}) as {
+    const { clientId, archetype, name, autopilot } = (req.body ?? {}) as {
       clientId?: string;
       archetype?: string;
       name?: string;
+      autopilot?: boolean;
     };
     if (!clientId) {
       reply.code(400);
       return { ok: false, error: 'clientId is required' };
     }
     try {
-      const mine = await controller.start(clientId, { archetype, name });
+      const mine = await controller.start(clientId, { archetype, name, autopilot });
       return { ok: true, mine };
     } catch (err) {
       reply.code(409);
       return { ok: false, error: (err as Error).message };
     }
+  });
+
+  app.post('/agents/autopilot', async (req, reply) => {
+    const { clientId, on } = (req.body ?? {}) as { clientId?: string; on?: boolean };
+    if (!clientId) {
+      reply.code(400);
+      return { ok: false, error: 'clientId is required' };
+    }
+    const mine = controller.setAutopilot(clientId, !!on);
+    if (!mine) {
+      reply.code(404);
+      return { ok: false, error: 'no active agent for this client' };
+    }
+    return { ok: true, mine };
   });
 
   app.post('/agents/stop', async (req) => {

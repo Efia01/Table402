@@ -2,20 +2,20 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { DEFAULT_TABLE } from '@table402/shared';
 
-const FLOW = [
-  { k: 'Agent', tone: '#2dd4bf', detail: 'an unknown party — no account, no API key' },
-  { k: '402', tone: '#fb7185', detail: 'the table answers “Payment Required” with a signed challenge' },
-  { k: 'Pay', tone: '#a3e635', detail: 'the agent signs & settles the seat fee over MPP' },
-  { k: 'Seat', tone: '#f5b942', detail: 'a receipt is minted — the seat unlocks' },
+const STEPS = [
+  { k: 'Sit down', tone: '#2dd4bf', detail: 'take a seat and buy in for up to $1,000 of your bankroll' },
+  { k: 'Blinds', tone: '#f5b942', detail: 'small & big blinds are posted, two hole cards are dealt' },
+  { k: 'Play', tone: '#a3e635', detail: 'fold, check, call, bet & raise across preflop, flop, turn, river' },
+  { k: 'Showdown', tone: '#c084fc', detail: 'best five-card hand wins the pot — your bankroll updates' },
 ];
 
-const WHY = [
-  { t: 'Unknown parties', d: 'Strangers transact on first contact. Identity is a signed DID, not a shared secret.' },
-  { t: 'No API keys', d: 'Access is bought per request via HTTP 402 — no onboarding, no dashboards, no keys.' },
-  { t: 'Machine micropayments', d: 'Every hand and every action is an independently-metered sub-cent payment.' },
-  { t: 'Service discovery', d: 'The table discovers and composes paid services (RNG, referee, commentary) on the fly.' },
-  { t: 'Receipts & verification', d: 'Each settlement mints a hashable receipt. Every hand produces a verifiable graph.' },
-  { t: 'Composable services', d: 'The table is itself a buyer — paying other agents to run the game it sells seats to.' },
+const FEATURES = [
+  { t: 'Real Texas Hold’em', d: 'Standard rules: blinds, four betting streets, all-ins, side pots, and exact showdown evaluation.' },
+  { t: 'Persistent bankroll', d: 'You start each hand with up to $1,000 — but never more than you actually have. Win it up, or lose it.' },
+  { t: 'Profit & loss log', d: 'Every hand records who won and lost how much. Watch your running balance climb or fall.' },
+  { t: 'Play or autopilot', d: 'Take the decisions yourself, or flip autopilot and let your seat play itself.' },
+  { t: 'Always a full table', d: 'House players fill the empty seats, so you can sit down and play a hand in seconds.' },
+  { t: 'Live, real-time felt', d: 'Cards deal, chips slide, and the action streams to the table as it happens.' },
 ];
 
 export function LandingPage() {
@@ -31,23 +31,23 @@ export function LandingPage() {
         >
           <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-edge bg-ink-800/70 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-mute">
             <span className="h-1.5 w-1.5 rounded-full bg-neon animate-pulseGlow" />
-            Machine Payments Protocol · testnet
+            Real-time Texas Hold’em · testnet
           </div>
           <h1 className="text-4xl font-semibold leading-[1.05] tracking-tight sm:text-6xl">
-            A poker arena for
+            Sit down.
             <br />
             <span className="bg-gradient-to-r from-neon via-agent to-service bg-clip-text text-transparent">
-              autonomous agents.
+              Play your hand.
             </span>
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-mute">
-            Unknown agents discover a table, hit an HTTP <span className="text-bad">402</span>, pay a
-            micro-fee over MPP, and sit down. The table, in turn, pays other services to run each hand.
-            <span className="text-text"> The game isn’t the product — the payment network is.</span>
+            A live six-max poker arena. Take a seat, get your cards, and play real Texas Hold’em
+            against the house. <span className="text-text">Build a bankroll — win it up or lose it,
+            hand by hand — and track every dollar in your profit &amp; loss log.</span>
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link to={`/table/${DEFAULT_TABLE.id}`} className="btn btn-primary">
-              Watch a live table →
+              Sit down &amp; play →
             </Link>
             <Link to="/lobby" className="btn">
               Open the lobby
@@ -56,17 +56,17 @@ export function LandingPage() {
         </motion.div>
       </section>
 
-      {/* Flow */}
+      {/* How a hand plays */}
       <section>
-        <h2 className="label mb-4">The join handshake</h2>
+        <h2 className="label mb-4">How a hand plays</h2>
         <div className="grid gap-3 sm:grid-cols-4">
-          {FLOW.map((step, i) => (
+          {STEPS.map((step, i) => (
             <motion.div
               key={step.k}
               initial={{ opacity: 0, y: 12 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: i * 0.12 }}
+              transition={{ delay: i * 0.1 }}
               className="glass relative p-4"
             >
               <div className="absolute right-3 top-3 font-mono text-xs text-ghost">0{i + 1}</div>
@@ -77,7 +77,7 @@ export function LandingPage() {
                 {step.k}
               </div>
               <p className="text-sm text-mute">{step.detail}</p>
-              {i < FLOW.length - 1 && (
+              {i < STEPS.length - 1 && (
                 <div className="pointer-events-none absolute -right-2 top-1/2 hidden -translate-y-1/2 text-ghost sm:block">
                   →
                 </div>
@@ -87,11 +87,11 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Why MPP */}
+      {/* Features */}
       <section>
-        <h2 className="label mb-4">Why MPP matters</h2>
+        <h2 className="label mb-4">At the table</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {WHY.map((w, i) => (
+          {FEATURES.map((w, i) => (
             <motion.div
               key={w.t}
               initial={{ opacity: 0, y: 12 }}
@@ -107,17 +107,17 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* Receipt graph teaser */}
+      {/* CTA */}
       <section className="glass flex flex-col items-start justify-between gap-4 p-6 sm:flex-row sm:items-center">
         <div>
-          <h2 className="text-xl font-semibold">Every hand is a receipt graph</h2>
+          <h2 className="text-xl font-semibold">Your seat is waiting</h2>
           <p className="mt-1 max-w-xl text-sm text-mute">
-            Who paid, who got paid, what was purchased, and which action it unlocked — rendered as a
-            verifiable graph of signed receipts.
+            Buy in for up to $1,000, see your own hole cards, and play it out. Simulation chips only —
+            non-redeemable, just for the fun of the game.
           </p>
         </div>
-        <Link to="/lobby" className="btn btn-primary whitespace-nowrap">
-          Explore the graph →
+        <Link to={`/table/${DEFAULT_TABLE.id}`} className="btn btn-primary whitespace-nowrap">
+          Deal me in →
         </Link>
       </section>
     </div>

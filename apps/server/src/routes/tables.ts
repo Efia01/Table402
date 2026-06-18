@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import {
+  addressToDid,
   buildWwwAuthenticate,
   decodeJson,
   didToAddress,
@@ -11,6 +12,7 @@ import {
 import { ActionRequest, AGENT_FAUCET, JoinRequest, SIM_USD, parseUsd } from '@table402/shared';
 import { db } from '../db/client';
 import { agents as agentsTable, balances } from '../db/schema';
+import { shortenAddress } from '../core/wallets';
 import type { AppContext } from '../core/context';
 
 export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void {
@@ -82,6 +84,19 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
         });
         return { ok: true, seatIndex, sessionId, agentId, did, balance: ctx.balanceOf(address) };
       } catch (err) {
+        // The seat fee was already settled in the preHandler, but the join failed
+        // (e.g. the session escrow couldn't open) — refund it so funds aren't burned.
+        try {
+          ctx.provider.settleCharge({
+            from: ctx.table.walletAddress,
+            to: address,
+            currency: ctx.table.currency,
+            amount: Number(receipt.settlement.amount),
+            reference: `seat-fee-refund:${receipt.challengeId}`,
+          });
+        } catch {
+          /* best-effort refund */
+        }
         reply.code((err as { statusCode?: number }).statusCode ?? 400);
         return { ok: false, error: (err as Error).message };
       }
@@ -164,6 +179,7 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
         did: a.did,
         address: a.address,
         balance: ctx.balanceOf(a.address),
+        bankroll: a.bankroll,
         seated: seated.has(a.id),
       })),
     );
@@ -172,9 +188,18 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
 
   // Testnet faucet: fund a brand-new agent wallet so it can pay its first seat fee.
   app.post('/faucet', async (req) => {
-    const { address } = (req.body ?? {}) as { address?: string };
+    const { address, label } = (req.body ?? {}) as { address?: string; label?: string };
     if (!address || !/^0x[0-9a-fA-F]{40}$/.test(address)) {
       return { ok: false, error: 'a valid 0x address is required' };
+    }
+    // Register the wallet so it appears in /balances even before it joins a table.
+    if (!ctx.wallets.getByAddress(address)) {
+      ctx.ensureAgentWallet({
+        id: `agent:${address.slice(2, 12).toLowerCase()}`,
+        label: label ?? shortenAddress(address),
+        address,
+        did: addressToDid(address),
+      });
     }
     if (ctx.balanceOf(address) < parseUsd('0.10')) {
       ctx.fund(address, AGENT_FAUCET, 'faucet');

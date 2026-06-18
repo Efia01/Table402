@@ -78,7 +78,7 @@ export function LobbyPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="stat-num text-sm">{formatUsd(a.balance)}</div>
+                        <div className="stat-num text-sm text-text">${a.bankroll.toLocaleString()}</div>
                         <div className="text-[10px] uppercase tracking-wide" style={{ color: a.seated ? '#34d399' : '#5d6379' }}>
                           {a.seated ? 'seated' : 'idle'}
                         </div>

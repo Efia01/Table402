@@ -22,6 +22,7 @@ export interface HandResultBanner {
   handId: string;
   winners: Array<{ seat: number; label: string; amount: number }>;
   board: string[];
+  results: Array<{ seat: number; label: string; delta: number; bankrollAfter: number }>;
 }
 
 export interface TableFeed {
@@ -61,7 +62,15 @@ function reduce(f: TableFeed, msg: WsEvent): TableFeed {
         ].slice(0, 100),
       };
     case 'hand-complete':
-      return { ...f, lastComplete: { handId: msg.handId, winners: msg.winners, board: msg.board } };
+      return {
+        ...f,
+        lastComplete: {
+          handId: msg.handId,
+          winners: msg.winners,
+          board: msg.board,
+          results: msg.results,
+        },
+      };
     case 'graph':
       return { ...f, graphTick: f.graphTick + 1 };
     case 'table-idle':

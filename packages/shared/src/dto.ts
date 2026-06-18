@@ -41,6 +41,7 @@ export const SeatDTO = z.object({
   agentName: z.string().nullable(),
   archetype: z.string().nullable(),
   stack: z.number().int(),
+  bankroll: z.number().int().default(0),
   committed: z.number().int(),
   holeCards: z.array(z.string()).nullable(),
   status: z.string(),
@@ -180,6 +181,14 @@ export const WsEvent = z.discriminatedUnion('type', [
     handId: z.string(),
     winners: z.array(z.object({ seat: z.number().int(), label: z.string(), amount: z.number().int() })),
     board: z.array(z.string()),
+    results: z.array(
+      z.object({
+        seat: z.number().int(),
+        label: z.string(),
+        delta: z.number().int(),
+        bankrollAfter: z.number().int(),
+      }),
+    ),
   }),
   z.object({ type: z.literal('graph'), handId: z.string() }),
   z.object({ type: z.literal('table-idle') }),

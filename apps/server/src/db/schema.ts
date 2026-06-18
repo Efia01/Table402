@@ -6,6 +6,24 @@ export const agents = sqliteTable('agents', {
   archetype: text('archetype').notNull(),
   did: text('did').notNull(),
   address: text('address').notNull(),
+  /** Persistent poker bankroll (simulation chips). Carries between hands. */
+  bankroll: integer('bankroll').notNull().default(1000),
+  createdAt: text('created_at').notNull(),
+});
+
+/** Per-hand profit/loss for every participant (the bankroll ledger). */
+export const bankrollLog = sqliteTable('bankroll_log', {
+  id: text('id').primaryKey(),
+  handId: text('hand_id').notNull(),
+  tableId: text('table_id').notNull(),
+  handNumber: integer('hand_number').notNull(),
+  agentId: text('agent_id').notNull(),
+  agentName: text('agent_name').notNull(),
+  buyIn: integer('buy_in').notNull(),
+  finalStack: integer('final_stack').notNull(),
+  delta: integer('delta').notNull(),
+  bankrollAfter: integer('bankroll_after').notNull(),
+  result: text('result').notNull(),
   createdAt: text('created_at').notNull(),
 });
 
@@ -152,6 +170,7 @@ export const balances = sqliteTable('balances', {
 });
 
 export type AgentRow = typeof agents.$inferSelect;
+export type BankrollLogRow = typeof bankrollLog.$inferSelect;
 export type TableRow = typeof tables.$inferSelect;
 export type HandRow = typeof hands.$inferSelect;
 export type ActionRow = typeof actions.$inferSelect;

@@ -74,13 +74,19 @@ export class AgentRuntime {
   /** Top up at the testnet faucet so a brand-new wallet can pay its first seat fee. */
   private async faucet(): Promise<void> {
     try {
-      await fetch(`${this.env.baseUrl}/faucet`, {
+      const res = await fetch(`${this.env.baseUrl}/faucet`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ address: this.identity.address, label: this.spec.name }),
       });
-    } catch {
-      /* boot-funded seeded agents don't need it */
+      if (!res.ok) {
+        this.log(`faucet returned HTTP ${res.status}`);
+        return;
+      }
+      const body = (await res.json()) as { ok?: boolean; error?: string };
+      if (body && body.ok === false) this.log(`faucet declined: ${body.error ?? 'unknown'}`);
+    } catch (err) {
+      this.log(`faucet unreachable: ${(err as Error).message}`);
     }
   }
 
@@ -144,9 +150,19 @@ export class AgentRuntime {
   }
 
   start(): void {
+    if (this.stopped) return;
+    if (this.poll) clearInterval(this.poll);
     if (this.useWs) this.connect();
     this.poll = setInterval(() => void this.takeTurn(), 800);
     void this.takeTurn();
+  }
+
+  /** Stop the autonomous loop but keep the agent seated (for manual control / resume). */
+  pause(): void {
+    if (this.poll) {
+      clearInterval(this.poll);
+      this.poll = null;
+    }
   }
 
   private connect(): void {
@@ -192,6 +208,13 @@ export class AgentRuntime {
       await sleep(think);
       if (this.stopped || this.seatIndex == null) return;
 
+      // Re-validate it's still our turn — the table may have advanced (or auto-acted) during the pause.
+      const recheck = await fetch(
+        `${this.env.baseUrl}/tables/${this.env.tableId}/view?agentId=${this.spec.id}`,
+      );
+      const recheckView = ((await recheck.json()) as { view: AgentView | null }).view;
+      if (!recheckView || !recheckView.isTurn || recheckView.handId !== view.handId) return;
+
       const r = await fetch(`${this.env.baseUrl}/tables/${this.env.tableId}/action`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -218,6 +241,8 @@ export class AgentRuntime {
     } catch {
       /* ignore */
     }
+    // Leaving is terminal — stop the local poll loop so we don't keep hitting /view.
+    this.stop();
   }
 
   stop(): void {

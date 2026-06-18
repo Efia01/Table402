@@ -21,7 +21,17 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-  return (await res.json()) as T;
+  let data: unknown = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  // Non-2xx without a structured {ok} body -> normalize to an error result.
+  if (!res.ok && (data == null || typeof (data as { ok?: unknown }).ok === 'undefined')) {
+    return { ok: false, error: `HTTP ${res.status}` } as T;
+  }
+  return (data ?? {}) as T;
 }
 
 export interface MineStatus {
@@ -29,12 +39,57 @@ export interface MineStatus {
   name: string;
   archetype: string;
   seatIndex: number | null;
+  autopilot: boolean;
 }
 export interface AgentControlStatus {
   mine: MineStatus | null;
   userCount: number;
   botCount: number;
   seated: number;
+}
+
+export interface AgentViewDTO {
+  isInHand: boolean;
+  isTurn: boolean;
+  handId: string | null;
+  number: number;
+  holeCards: string[];
+  board: string[];
+  street: string;
+  pot: number;
+  currentBet: number;
+  toCall: number;
+  stack: number;
+  bankroll: number;
+  legal: { types: string[]; callAmount: number; minRaiseTo: number; maxRaiseTo: number };
+}
+
+export interface PnlEntry {
+  handId: string;
+  handNumber: number;
+  buyIn: number;
+  finalStack: number;
+  delta: number;
+  bankrollAfter: number;
+  result: string;
+  timestamp: string;
+}
+export interface PnlResponse {
+  agentId: string;
+  name: string;
+  bankroll: number;
+  cumulative: number;
+  handsPlayed: number;
+  log: PnlEntry[];
+}
+export interface HandResult {
+  agentId: string;
+  name: string;
+  buyIn: number;
+  finalStack: number;
+  delta: number;
+  bankrollAfter: number;
+  result: string;
 }
 
 export interface AgentRow {
@@ -44,6 +99,7 @@ export interface AgentRow {
   did: string;
   address: string;
   balance: number;
+  bankroll: number;
   seated: boolean;
 }
 
@@ -123,8 +179,22 @@ export const api = {
   graph: (id: string) => get<{ graph: GraphDTO }>(`/hands/${id}/graph`),
   agentStatus: (clientId: string) =>
     get<AgentControlStatus>(`/agents/status?clientId=${encodeURIComponent(clientId)}`),
-  startAgent: (clientId: string, archetype: string) =>
-    post<{ ok: boolean; mine?: MineStatus; error?: string }>('/agents/start', { clientId, archetype }),
+  startAgent: (clientId: string, opts: { name?: string; autopilot?: boolean }) =>
+    post<{ ok: boolean; mine?: MineStatus; error?: string }>('/agents/start', { clientId, ...opts }),
   stopAgent: (clientId: string) =>
     post<{ ok: boolean; stopped?: boolean }>('/agents/stop', { clientId }),
+  setAutopilot: (clientId: string, on: boolean) =>
+    post<{ ok: boolean; mine?: MineStatus }>('/agents/autopilot', { clientId, on }),
+  agentView: (tableId: string, agentId: string) =>
+    get<{ view: AgentViewDTO | null }>(
+      `/tables/${tableId}/view?agentId=${encodeURIComponent(agentId)}`,
+    ),
+  submitAction: (tableId: string, agentId: string, type: string, amount?: number) =>
+    post<{ ok: boolean; error?: string; paidVia?: string }>(`/tables/${tableId}/action`, {
+      agentId,
+      type,
+      amount,
+    }),
+  pnl: (agentId: string) => get<PnlResponse>(`/pnl?agentId=${encodeURIComponent(agentId)}`),
+  handResults: (handId: string) => get<{ results: HandResult[] }>(`/hands/${handId}/results`),
 };

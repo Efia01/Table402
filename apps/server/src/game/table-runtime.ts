@@ -19,7 +19,15 @@ import {
 } from '@table402/poker';
 import { createReceiptGraph, verifyGraph, type GraphPayment } from '@table402/receipt-graph';
 import { db } from '../db/client';
-import { actions as actionsTable, hands, receiptGraphs, sessions, tables } from '../db/schema';
+import {
+  actions as actionsTable,
+  agents as agentsTable,
+  bankrollLog,
+  hands,
+  receiptGraphs,
+  sessions,
+  tables,
+} from '../db/schema';
 import { eq, sql } from 'drizzle-orm';
 import type { AppContext, PaymentParty } from '../core/context';
 
@@ -30,7 +38,12 @@ interface Seat {
   archetype: string;
   address: string;
   did: string;
+  /** In-hand table chips (the buy-in, mutated during the hand). */
   stack: number;
+  /** Persistent bankroll — total money that carries between hands. */
+  bankroll: number;
+  /** This hand's buy-in (so we can compute profit/loss at the end). */
+  buyIn: number;
   sessionId: string | null;
 }
 
@@ -42,6 +55,7 @@ interface Participant {
   archetype: string;
   address: string;
   did: string;
+  buyIn: number;
   sessionId: string | null;
 }
 
@@ -206,6 +220,14 @@ export class TableRuntime {
       });
     }
 
+    // Load the agent's persistent bankroll (carries between sessions).
+    const agentRow = await db
+      .select({ bankroll: agentsTable.bankroll })
+      .from(agentsTable)
+      .where(eq(agentsTable.id, input.agentId))
+      .get();
+    const bankroll = agentRow?.bankroll ?? this.cfg.startingChips;
+
     const seat: Seat = {
       seatIndex,
       agentId: input.agentId,
@@ -213,7 +235,9 @@ export class TableRuntime {
       archetype: input.archetype,
       address: input.address,
       did: input.did,
-      stack: this.cfg.startingChips,
+      stack: Math.min(this.cfg.startingChips, bankroll),
+      bankroll,
+      buyIn: 0,
       sessionId,
     };
     this.seats[seatIndex] = seat;
@@ -272,9 +296,13 @@ export class TableRuntime {
     }
     const wasParticipant = this.current?.participants.some((p) => p.agentId === agentId) ?? false;
     this.seats[index] = null;
+    this.pendingSeatFees.delete(agentId); // drop any unconsumed seat-fee edge
 
     // If they were in the live hand, the hand can no longer be played fairly — abandon it.
     if (wasParticipant) await this.abandonHand(`${seat.name} left mid-hand`);
+
+    // Cancel any scheduled next hand so maybeStartHand re-evaluates the funded count.
+    this.clearNextHandTimer();
 
     await this.ctx.snapshotBalances();
     this.ctx.hub.broadcast(this.cfg.id, {
@@ -285,6 +313,13 @@ export class TableRuntime {
     this.broadcastState();
     this.maybeStartHand();
     return { left: true, refunded };
+  }
+
+  private clearNextHandTimer(): void {
+    if (this.nextHandTimer) {
+      clearTimeout(this.nextHandTimer);
+      this.nextHandTimer = null;
+    }
   }
 
   private async abandonHand(reason: string): Promise<void> {
@@ -328,18 +363,36 @@ export class TableRuntime {
     if (this.current || this.starting) return;
     this.starting = true;
     try {
-      // Each hand is an independent sit-down: reset every seat to the starting stack.
-      // Simulation chips are not a tournament score — the payment network is the point —
-      // so this keeps pots bounded and stacks readable while hands run indefinitely.
-      for (const seat of this.seats) {
-        if (seat) seat.stack = this.cfg.startingChips;
+      const BUYIN_CAP = this.cfg.startingChips; // each game you buy in for up to $1,000…
+      const BB = this.cfg.bigBlind;
+      // …but never for more than your persistent bankroll. Only players who can post
+      // the big blind are dealt in; if too few can, re-stake short players so the
+      // table stays alive (a fresh game stakes everyone to the cap again).
+      let eligible = this.seats.filter((s): s is Seat => !!s && s.bankroll >= BB);
+      if (eligible.length < 2) {
+        let restaked = 0;
+        for (const s of this.seats) {
+          if (s && s.bankroll < BUYIN_CAP) {
+            s.bankroll = BUYIN_CAP;
+            restaked += 1;
+          }
+        }
+        if (restaked > 0) {
+          this.ctx.hub.broadcast(this.cfg.id, {
+            type: 'log',
+            level: 'info',
+            message: `Re-staked ${restaked} short player(s) to ${BUYIN_CAP} chips to keep the table alive`,
+          });
+        }
+        eligible = this.seats.filter((s): s is Seat => !!s && s.bankroll >= BB);
       }
-      const seated = this.seats.filter((s): s is Seat => !!s && s.stack > 0);
-      if (seated.length < 2) return;
+      if (eligible.length < 2) {
+        this.ctx.hub.broadcast(this.cfg.id, { type: 'table-idle' });
+        return;
+      }
 
       const number = ++this.handNumber;
       const handId = newId('hand');
-      const button = number % seated.length;
 
       // 1. Table buys an RNG seed (service fee, table -> RNG).
       const rng = await this.buyService<{ seed: string }>('/services/rng/seed', { handId, tableId: this.cfg.id });
@@ -361,7 +414,22 @@ export class TableRuntime {
         unlocks: `hand #${number} shuffle seed`,
       });
 
-      const participants: Participant[] = seated.map((seat, position) => ({
+      // Players may have left during the RNG purchase — re-validate the seated set.
+      const live = eligible.filter((s) => this.seats[s.seatIndex]?.agentId === s.agentId);
+      if (live.length < 2) {
+        this.ctx.hub.broadcast(this.cfg.id, { type: 'table-idle' });
+        return;
+      }
+      const button = number % live.length;
+
+      // Commit buy-ins: move chips from each player's bankroll onto the table.
+      for (const s of live) {
+        s.buyIn = Math.min(BUYIN_CAP, s.bankroll);
+        s.bankroll -= s.buyIn;
+        s.stack = s.buyIn;
+      }
+
+      const participants: Participant[] = live.map((seat, position) => ({
         position,
         seatIndex: seat.seatIndex,
         agentId: seat.agentId,
@@ -369,6 +437,7 @@ export class TableRuntime {
         archetype: seat.archetype,
         address: seat.address,
         did: seat.did,
+        buyIn: seat.buyIn,
         sessionId: seat.sessionId,
       }));
 
@@ -382,7 +451,7 @@ export class TableRuntime {
           index: p.position,
           playerId: p.agentId,
           name: p.name,
-          stack: seated[p.position]!.stack,
+          stack: p.buyIn,
         })),
       };
 
@@ -553,15 +622,12 @@ export class TableRuntime {
     const state = hand.state;
     const result = state.result!;
 
-    // Sync final stacks back to the seats.
-    for (const p of hand.participants) {
-      const seat = this.seats[p.seatIndex];
-      if (seat) seat.stack = state.seats[p.position]!.stack;
-    }
-
     // Reveal the showdown and let it linger so it's readable in real time.
     this.broadcastState();
     await this.sleep(this.ctx.config.showdownDelayMs);
+    // A player may have left during the showdown pause — if so, abandonHand already
+    // tore this hand down; don't double-finish it.
+    if (this.current !== hand) return;
 
     const history = buildHandHistory(hand.config, state);
 
@@ -645,6 +711,9 @@ export class TableRuntime {
       this.ctx.hub.broadcast(this.cfg.id, { type: 'log', level: 'warn', message: `commentary failed: ${err}` });
     }
 
+    // Guard again: a leave during the referee/commentary purchases would have abandoned this hand.
+    if (this.current !== hand) return;
+
     // 5. Build + persist the receipt graph.
     const graph = createReceiptGraph(hand.id, hand.payments);
     const verification = verifyGraph(hand.payments);
@@ -663,6 +732,37 @@ export class TableRuntime {
       const part = hand.participants.find((p) => p.position === pos);
       return { seat: part?.seatIndex ?? pos, label: part?.name ?? `Seat ${pos}`, amount: result.payouts[pos] ?? 0 };
     });
+
+    // Settle this hand's profit/loss into each player's persistent bankroll + log it.
+    const results: Array<{ seat: number; label: string; delta: number; bankrollAfter: number }> = [];
+    const pnlAt = nowIso();
+    for (const p of hand.participants) {
+      const finalStack = state.seats[p.position]!.stack;
+      const delta = finalStack - p.buyIn; // buy-in was deducted from the bankroll at hand start
+      const seat = this.seats[p.seatIndex];
+      let bankrollAfter = finalStack;
+      if (seat && seat.agentId === p.agentId) {
+        seat.bankroll += finalStack;
+        seat.stack = seat.bankroll; // between hands the seat shows its bankroll
+        bankrollAfter = seat.bankroll;
+        await db.update(agentsTable).set({ bankroll: seat.bankroll }).where(eq(agentsTable.id, p.agentId));
+      }
+      results.push({ seat: p.seatIndex, label: p.name, delta, bankrollAfter });
+      await db.insert(bankrollLog).values({
+        id: newId('pnl'),
+        handId: hand.id,
+        tableId: this.cfg.id,
+        handNumber: hand.number,
+        agentId: p.agentId,
+        agentName: p.name,
+        buyIn: p.buyIn,
+        finalStack,
+        delta,
+        bankrollAfter,
+        result: delta > 0 ? 'won' : delta < 0 ? 'lost' : 'even',
+        createdAt: pnlAt,
+      });
+    }
 
     await db
       .update(hands)
@@ -690,6 +790,7 @@ export class TableRuntime {
       handId: hand.id,
       winners: winnersOut,
       board: cardsToStrings(state.board),
+      results,
     });
     this.broadcastState();
     this.ctx.hub.broadcast(this.cfg.id, { type: 'graph', handId: hand.id });
@@ -810,6 +911,7 @@ export class TableRuntime {
         agentName: p.name,
         archetype: p.archetype,
         stack: enginSeat.stack,
+        bankroll: this.seats[p.seatIndex]?.bankroll ?? 0,
         committed: enginSeat.committedRound,
         holeCards: reveal ? cardsToStrings(enginSeat.holeCards) : null,
         status: enginSeat.status,
@@ -840,7 +942,8 @@ export class TableRuntime {
       agentId: seat?.agentId ?? null,
       agentName: seat?.name ?? null,
       archetype: seat?.archetype ?? null,
-      stack: seat?.stack ?? 0,
+      stack: seat?.bankroll ?? 0,
+      bankroll: seat?.bankroll ?? 0,
       committed: 0,
       holeCards: null,
       status: seat ? 'seated' : 'empty',
@@ -876,6 +979,7 @@ export class TableRuntime {
     currentBet: number;
     toCall: number;
     stack: number;
+    bankroll: number;
     legal: { types: string[]; callAmount: number; minRaiseTo: number; maxRaiseTo: number };
   } | null {
     const hand = this.current;
@@ -897,6 +1001,7 @@ export class TableRuntime {
       currentBet: hand.state.currentBet,
       toCall: Math.max(0, hand.state.currentBet - seat.committedRound),
       stack: seat.stack,
+      bankroll: this.seats[participant.seatIndex]?.bankroll ?? 0,
       legal: {
         types: isTurn ? legal.types : [],
         callAmount: legal.callAmount,

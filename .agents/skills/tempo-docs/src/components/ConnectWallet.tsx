@@ -1,0 +1,89 @@
+'use client'
+import * as React from 'react'
+import { tempo } from 'viem/chains'
+import { useChains, useConnect, useConnection, useConnectors, useSwitchChain } from 'wagmi'
+import { Button, Logout } from './guides/Demo'
+import { filterSupportedInjectedConnectors } from './lib/wallets'
+
+const mainnetParams = {
+  chainId: tempo.id,
+  addEthereumChainParameter: {
+    chainName: tempo.name,
+    nativeCurrency: { name: 'USD', decimals: 18, symbol: 'USD' },
+    rpcUrls: [tempo.rpcUrls.default.http[0]],
+    blockExplorerUrls: ['https://explore.tempo.xyz'],
+  },
+}
+
+export function ConnectWallet({
+  showAddChain = true,
+  network = 'testnet',
+}: { showAddChain?: boolean; network?: 'mainnet' | 'testnet' }) {
+  const { address, chain, connector } = useConnection()
+  const connect = useConnect()
+  const connectors = useConnectors()
+  const injectedConnectors = React.useMemo(
+    () => filterSupportedInjectedConnectors(connectors),
+    [connectors],
+  )
+  const switchChain = useSwitchChain()
+  const chains = useChains()
+  const targetChainId = network === 'mainnet' ? tempo.id : chains[0].id
+  const isSupported =
+    network === 'mainnet' ? chain?.id === targetChainId : chains.some((c) => c.id === chain?.id)
+  if (!injectedConnectors.length)
+    return (
+      <div className="flex items-center text-[14px] -tracking-[2%]">No browser wallets found.</div>
+    )
+  if (!address || connector?.id === 'webAuthn')
+    return (
+      <div className="flex gap-2">
+        {injectedConnectors.map((connector) => (
+          <Button
+            variant="default"
+            className="flex items-center gap-1.5"
+            key={connector.id}
+            onClick={() => connect.connect({ connector })}
+          >
+            {connector.icon ? (
+              <img className="size-5" src={connector.icon} alt={connector.name} />
+            ) : (
+              <div />
+            )}
+            {connector.name}
+          </Button>
+        ))}
+      </div>
+    )
+
+  const switchParams =
+    network === 'mainnet'
+      ? mainnetParams
+      : {
+          chainId: chains[0].id,
+          addEthereumChainParameter: {
+            nativeCurrency: { name: 'USD', decimals: 18, symbol: 'USD' },
+            blockExplorerUrls: ['https://explore.testnet.tempo.xyz'],
+          },
+        }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Logout />
+      {showAddChain && !isSupported && (
+        <Button
+          className="w-fit"
+          variant="accent"
+          onClick={() => switchChain.switchChain(switchParams)}
+        >
+          Add Tempo to {connector?.name ?? 'Wallet'}
+        </Button>
+      )}
+      {switchChain.isSuccess && (
+        <div className="flex items-center font-normal text-[14px] -tracking-[2%]">
+          Added Tempo to {connector?.name ?? 'Wallet'}!
+        </div>
+      )}
+    </div>
+  )
+}

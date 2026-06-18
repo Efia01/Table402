@@ -7,6 +7,9 @@ import { useTableFeed } from '../lib/ws';
 import { archetypeColor, feeColor, formatUsd } from '../lib/ui';
 import { CardRow } from '../components/PlayingCard';
 import { ControlPanel } from '../components/ControlPanel';
+import { PlayerHand } from '../components/PlayerHand';
+import { BankrollPanel, fmtChips } from '../components/BankrollPanel';
+import { useClientId } from '../lib/clientId';
 import { FeeBadge, LiveDot, Panel, Empty } from '../components/primitives';
 
 const SEAT_POS = [
@@ -18,16 +21,27 @@ const SEAT_POS = [
   { left: '16%', top: '16%' },
 ];
 
-function SeatPod({ seat, isTurn }: { seat: SeatDTO; isTurn: boolean }) {
+function SeatPod({
+  seat,
+  isTurn,
+  revealCards,
+  isYou,
+}: {
+  seat: SeatDTO;
+  isTurn: boolean;
+  revealCards?: string[] | null;
+  isYou?: boolean;
+}) {
   const empty = !seat.agentId;
   const folded = seat.status === 'folded';
-  const tone = archetypeColor(seat.archetype);
+  const tone = isYou ? '#2dd4bf' : archetypeColor(seat.archetype);
+  const cards = revealCards ?? seat.holeCards ?? [null, null];
   return (
     <motion.div
       animate={isTurn ? { scale: [1, 1.04, 1] } : { scale: 1 }}
       transition={isTurn ? { repeat: Infinity, duration: 1.6 } : {}}
       className={`w-36 rounded-xl border px-3 py-2 text-center backdrop-blur ${
-        isTurn ? 'border-neon shadow-glow' : 'border-edge/70'
+        isTurn ? 'border-neon shadow-glow' : isYou ? 'border-agent/60' : 'border-edge/70'
       } ${folded ? 'opacity-40' : ''}`}
       style={{ background: 'rgba(10,12,18,0.82)' }}
     >
@@ -38,6 +52,7 @@ function SeatPod({ seat, isTurn }: { seat: SeatDTO; isTurn: boolean }) {
           <div className="flex items-center justify-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ background: tone }} />
             <span className="truncate text-sm font-medium">{seat.agentName}</span>
+            {isYou && <span className="text-[9px] font-bold uppercase tracking-wide text-agent">you</span>}
             {seat.isButton && (
               <span className="ml-1 grid h-4 w-4 place-items-center rounded-full bg-tabletone/20 text-[9px] font-bold text-tabletone">
                 D
@@ -45,8 +60,9 @@ function SeatPod({ seat, isTurn }: { seat: SeatDTO; isTurn: boolean }) {
             )}
           </div>
           <div className="stat-num mt-0.5 text-xs text-mute">{seat.stack} chips</div>
+          <div className="stat-num text-[10px] text-ghost">bank {fmtChips(seat.bankroll ?? 0)}</div>
           <div className="mt-1 flex justify-center">
-            <CardRow cards={seat.holeCards ?? [null, null]} size="sm" />
+            <CardRow cards={cards} size="sm" />
           </div>
           {seat.committed > 0 && (
             <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-tabletone/15 px-2 py-0.5 text-[10px] text-tabletone">
@@ -61,10 +77,26 @@ function SeatPod({ seat, isTurn }: { seat: SeatDTO; isTurn: boolean }) {
 
 export function TablePage() {
   const { id = '' } = useParams();
+  const clientId = useClientId();
   const detail = useQuery({ queryKey: ['table', id], queryFn: () => api.table(id), refetchInterval: 4000 });
   const feed = useTableFeed(id);
 
+  const statusQ = useQuery({
+    queryKey: ['agentStatus', clientId],
+    queryFn: () => api.agentStatus(clientId),
+    refetchInterval: 2500,
+  });
+  const mine = statusQ.data?.mine ?? null;
+
   const hand = feed.hand ?? detail.data?.hand ?? null;
+  const refetchKey = `${hand?.handId ?? ''}:${hand?.street ?? ''}:${hand?.toActSeat ?? ''}:${hand?.board?.length ?? 0}`;
+  const myViewQ = useQuery({
+    queryKey: ['myview', mine?.agentId, refetchKey],
+    queryFn: () => api.agentView(id, mine!.agentId),
+    enabled: !!mine?.agentId,
+    refetchInterval: 1500,
+  });
+  const myCards = myViewQ.data?.view?.isInHand ? myViewQ.data.view.holeCards : null;
   const seats: SeatDTO[] =
     hand?.seats && hand.seats.length
       ? // map hand seats into a full ring keyed by seat index
@@ -109,6 +141,13 @@ export function TablePage() {
 
       <ControlPanel />
 
+      {mine && (
+        <div className="grid gap-5 lg:grid-cols-2">
+          <PlayerHand tableId={id} mine={mine} refetchKey={refetchKey} />
+          <BankrollPanel mine={mine} tick={feed.lastComplete?.handId ?? ''} />
+        </div>
+      )}
+
       <div className="grid gap-5 lg:grid-cols-3">
         {/* Felt */}
         <div className="lg:col-span-2">
@@ -145,7 +184,12 @@ export function TablePage() {
                 className="absolute -translate-x-1/2 -translate-y-1/2"
                 style={SEAT_POS[seat.index] ?? { left: '50%', top: '50%' }}
               >
-                <SeatPod seat={seat} isTurn={hand?.toActSeat === seat.index} />
+                <SeatPod
+                  seat={seat}
+                  isTurn={hand?.toActSeat === seat.index}
+                  isYou={mine?.seatIndex === seat.index}
+                  revealCards={mine?.seatIndex === seat.index ? myCards : null}
+                />
               </div>
             ))}
           </div>
@@ -210,6 +254,27 @@ export function TablePage() {
               </AnimatePresence>
             </div>
           </Panel>
+
+          {feed.lastComplete && feed.lastComplete.results.length > 0 && (
+            <Panel title={`Last hand · who won & lost`}>
+              <div className="space-y-1">
+                {[...feed.lastComplete.results]
+                  .sort((a, b) => b.delta - a.delta)
+                  .map((r) => (
+                    <div key={r.seat} className="flex items-center justify-between text-sm">
+                      <span className="truncate text-mute">{r.label}</span>
+                      <span
+                        className="stat-num"
+                        style={{ color: r.delta > 0 ? '#34d399' : r.delta < 0 ? '#fb7185' : '#9aa0b6' }}
+                      >
+                        {r.delta > 0 ? '+' : ''}
+                        {fmtChips(r.delta)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </Panel>
+          )}
 
           <Panel title="Table log">
             <div className="max-h-56 space-y-1 overflow-auto text-xs">

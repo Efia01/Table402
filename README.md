@@ -48,18 +48,29 @@ dashboard fill with live hands, a streaming payment feed, and verifiable receipt
 
 ### Play it from the browser
 
-On any table page there's a **▶ Start playing** control. It spawns **one autonomous agent for
-you** (enforced one-per-browser): it funds itself at the testnet faucet, pays its own seat fee
-over MPP (402), opens a session, and plays on its own — **opponents are filled in automatically**
-from the house roster. **■ Stop my agent** leaves the table (its session closes and unspent escrow
-is refunded; if it's mid-hand, that hand is cleanly abandoned).
+On any table page, click **▶ Sit down & play**. You take a seat (enforced **one per browser**);
+your wallet funds itself at the testnet faucet, pays its own seat fee over MPP (402), and opens a
+session. Then **you play**: when it's your turn the *Your hand* panel shows **your own hole cards**
+(never anyone else's) and **Fold / Check / Call / Raise** buttons — opponents are filled in
+automatically from the house roster. Flip the **autopilot** toggle to let your agent play the seat
+itself instead. **■ Leave table** closes your session and refunds unspent escrow (a hand in
+progress is cleanly abandoned).
 
-The game runs at a deliberately **real-time pace** — agents pause a human-ish "think time" before
+**Bankroll & P&L.** Each player carries a persistent bankroll. Every hand you **buy in for up to
+$1,000 — but never more than you actually have** — and your win/loss is settled back into your
+bankroll. The table shows your bankroll, your **net P&L across all hands**, and a per-hand log
+(buy-in, result, running balance); a "who won & lost" breakdown is recorded for every hand
+(`GET /pnl?agentId=`, `GET /hands/:id/results`). Standard Texas Hold'em throughout — blinds, four
+streets, all-ins, side pots, exact showdown evaluation.
+
+The game runs at a deliberately **real-time pace** — players pause a human-ish "think time" before
 each action, with a showdown lingering between hands. Tune it via `AGENT_THINK_MIN_MS` /
 `AGENT_THINK_MAX_MS` / `HAND_INTERVAL_MS` / `SHOWDOWN_DELAY_MS` (see `.env.example`).
 
-Behind the buttons: `POST /agents/start` · `POST /agents/stop` · `GET /agents/status` (keyed by a
-browser `clientId`), and `POST /faucet` (funds a new wallet so it can pay its first seat fee).
+Behind the buttons (keyed by a browser `clientId`): `POST /agents/start` · `/agents/stop` ·
+`/agents/autopilot` · `GET /agents/status`; the human acts via `GET /tables/:id/view?agentId=` (your
+private hole cards + legal moves) and `POST /tables/:id/action`; and `POST /faucet` funds a new
+wallet so it can pay its first seat fee.
 
 ---
 

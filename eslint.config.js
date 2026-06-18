@@ -10,6 +10,8 @@ export default tseslint.config(
       'data/**',
       '**/drizzle/**',
       'apps/web/dist/**',
+      '.agents/**',
+      '**/.agents/**',
       '**/*.config.js',
       '**/*.config.ts',
     ],

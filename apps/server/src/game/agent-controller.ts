@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { AgentRuntime, ARCHETYPES, ROSTER, budgetFor, type AgentSpec } from '@table402/agent';
 import type { Archetype } from '@table402/shared';
 import type { AppContext } from '../core/context';
@@ -5,6 +6,7 @@ import type { AppContext } from '../core/context';
 interface Managed {
   runtime: AgentRuntime;
   spec: AgentSpec;
+  autopilot: boolean;
 }
 
 export interface ControllerOptions {
@@ -21,6 +23,7 @@ export interface MineStatus {
   name: string;
   archetype: string;
   seatIndex: number | null;
+  autopilot: boolean;
 }
 
 export interface AgentStatus {
@@ -53,6 +56,11 @@ export class AgentController {
     return this.ctx.table.seatsOverview().some((s) => s.agentId === agentId);
   }
 
+  /** Collision-resistant agent id derived from the FULL clientId. */
+  private agentIdFor(clientId: string): string {
+    return `user-${createHash('sha256').update(clientId).digest('hex').slice(0, 12)}`;
+  }
+
   private spawn(spec: AgentSpec): AgentRuntime {
     return new AgentRuntime(spec, {
       baseUrl: this.opts.baseUrl,
@@ -70,36 +78,53 @@ export class AgentController {
       name: m.spec.name,
       archetype: m.spec.archetype,
       seatIndex: m.runtime.seatIndex,
+      autopilot: m.autopilot,
     };
   }
 
-  /** Start the caller's single agent (idempotent per clientId). */
-  async start(clientId: string, choice: { archetype?: string; name?: string }): Promise<MineStatus> {
+  /**
+   * Start the caller's single agent (idempotent per clientId). By default the seat
+   * is **human-controlled** (the player acts via the UI). With `autopilot`, the
+   * agent plays itself.
+   */
+  async start(
+    clientId: string,
+    choice: { archetype?: string; name?: string; autopilot?: boolean },
+  ): Promise<MineStatus> {
     const existing = this.users.get(clientId);
     if (existing) return this.mine(existing); // one player per user
     if (this.starting.has(clientId)) throw new Error('your agent is already starting');
-    this.starting.add(clientId);
+    this.starting.add(clientId); // reserve the slot synchronously (seen by stop())
     try {
       const archetype = (
         ARCHETYPES.includes(choice.archetype as Archetype) ? choice.archetype : pickRandom(ARCHETYPES)
       ) as Archetype;
-      const shortId = clientId.replace(/[^a-z0-9]/gi, '').slice(0, 10) || Math.random().toString(36).slice(2, 10);
-      const id = `user-${shortId}`;
-      const name = (choice.name ?? '').trim().slice(0, 24) || `You · ${archetype}`;
+      const id = this.agentIdFor(clientId);
+      const name = (choice.name ?? '').trim().slice(0, 24) || 'You';
       const spec: AgentSpec = { id, name, archetype, budget: budgetFor(archetype) };
 
       const runtime = this.spawn(spec);
       const joined = await runtime.join();
       if (!joined) throw new Error('could not seat your agent (table may be full)');
-      runtime.start();
-
-      const managed: Managed = { runtime, spec };
-      this.users.set(clientId, managed);
-      await this.ensureBots();
-      return this.mine(managed);
+      // Only run the autonomous play loop in autopilot mode; otherwise the human drives this seat.
+      if (choice.autopilot) runtime.start();
+      this.users.set(clientId, { runtime, spec, autopilot: !!choice.autopilot });
     } finally {
       this.starting.delete(clientId);
     }
+    // Filling opponents must never fail the user's own start.
+    await this.ensureBots();
+    return this.mine(this.users.get(clientId)!);
+  }
+
+  /** Toggle autopilot for an already-seated user agent. */
+  setAutopilot(clientId: string, on: boolean): MineStatus | null {
+    const m = this.users.get(clientId);
+    if (!m) return null;
+    if (on && !m.autopilot) m.runtime.start();
+    if (!on && m.autopilot) m.runtime.pause();
+    m.autopilot = on;
+    return this.mine(m);
   }
 
   /** Stop + remove the caller's agent. Clears house bots once nobody is playing. */
@@ -109,7 +134,8 @@ export class AgentController {
     this.users.delete(clientId);
     m.runtime.stop();
     await m.runtime.leave();
-    if (this.users.size === 0) await this.removeBots();
+    // Only tear down bots when no users are active AND none are mid-start.
+    if (this.users.size === 0 && this.starting.size === 0) await this.removeBots();
     return true;
   }
 
@@ -119,9 +145,21 @@ export class AgentController {
       if (this.ctx.table.seatedCount() >= target) break;
       if (this.bots.has(spec.id) || this.isSeated(spec.id)) continue;
       const runtime = this.spawn(spec);
-      if (await runtime.join()) {
-        runtime.start();
-        this.bots.set(spec.id, { runtime, spec });
+      this.bots.set(spec.id, { runtime, spec, autopilot: true }); // reserve before awaiting (prevents double-spawn)
+      try {
+        if (await runtime.join()) {
+          runtime.start();
+        } else {
+          this.bots.delete(spec.id);
+          runtime.stop();
+        }
+      } catch {
+        this.bots.delete(spec.id);
+        try {
+          runtime.stop();
+        } catch {
+          /* ignore */
+        }
       }
     }
   }

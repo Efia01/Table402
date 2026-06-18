@@ -1,8 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import { asc, desc, eq } from 'drizzle-orm';
+import { asc, desc, eq, sql } from 'drizzle-orm';
 import type { GraphDTO } from '@table402/shared';
 import { db } from '../db/client';
-import { actions, hands, payments, receiptGraphs } from '../db/schema';
+import { agents, actions, bankrollLog, hands, payments, receiptGraphs } from '../db/schema';
 import type { AppContext } from '../core/context';
 
 function paymentToReceiptDTO(p: typeof payments.$inferSelect) {
@@ -48,6 +48,65 @@ export function registerHandRoutes(app: FastifyInstance, ctx: AppContext): void 
       .where(eq(actions.handId, id))
       .orderBy(asc(actions.seq));
     return { hand, actions: handActions };
+  });
+
+  // A player's bankroll + cumulative P&L + per-hand log.
+  app.get('/pnl', async (req, reply) => {
+    const agentId = (req.query as { agentId?: string }).agentId;
+    if (!agentId) {
+      reply.code(400);
+      return { error: 'agentId required' };
+    }
+    const agent = await db.select().from(agents).where(eq(agents.id, agentId)).get();
+    const log = await db
+      .select()
+      .from(bankrollLog)
+      .where(eq(bankrollLog.agentId, agentId))
+      .orderBy(desc(bankrollLog.createdAt))
+      .limit(200);
+    const agg = await db
+      .select({ total: sql<number>`coalesce(sum(${bankrollLog.delta}), 0)`, n: sql<number>`count(*)` })
+      .from(bankrollLog)
+      .where(eq(bankrollLog.agentId, agentId))
+      .get();
+    return {
+      agentId,
+      name: agent?.name ?? agentId,
+      bankroll: agent?.bankroll ?? 0,
+      cumulative: Number(agg?.total ?? 0),
+      handsPlayed: Number(agg?.n ?? 0),
+      log: log.map((r) => ({
+        handId: r.handId,
+        handNumber: r.handNumber,
+        buyIn: r.buyIn,
+        finalStack: r.finalStack,
+        delta: r.delta,
+        bankrollAfter: r.bankrollAfter,
+        result: r.result,
+        timestamp: r.createdAt,
+      })),
+    };
+  });
+
+  // Every player's profit/loss for a single hand.
+  app.get('/hands/:id/results', async (req) => {
+    const { id } = req.params as { id: string };
+    const rows = await db
+      .select()
+      .from(bankrollLog)
+      .where(eq(bankrollLog.handId, id))
+      .orderBy(desc(bankrollLog.delta));
+    return {
+      results: rows.map((r) => ({
+        agentId: r.agentId,
+        name: r.agentName,
+        buyIn: r.buyIn,
+        finalStack: r.finalStack,
+        delta: r.delta,
+        bankrollAfter: r.bankrollAfter,
+        result: r.result,
+      })),
+    };
   });
 
   app.get('/hands/:id/receipts', async (req) => {
