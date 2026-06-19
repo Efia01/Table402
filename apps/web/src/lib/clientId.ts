@@ -1,10 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useWallet } from './WalletProvider';
 
 const KEY = 'table402.clientId';
 
-/** A stable per-browser id used to enforce "one agent per user". */
 export function getClientId(): string {
-  // Allow ?client=<id> to pin the identity (handy for resuming or sharing a session).
   try {
     const override = new URLSearchParams(location.search).get('client');
     if (override) {
@@ -23,6 +22,15 @@ export function getClientId(): string {
 }
 
 export function useClientId(): string {
-  const [id] = useState(getClientId);
+  const { did } = useWallet();
+  const [id, setId] = useState(getClientId);
+
+  useEffect(() => {
+    if (did) {
+      localStorage.setItem(KEY, did);
+      setId(did);
+    }
+  }, [did]);
+
   return id;
 }

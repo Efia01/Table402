@@ -1,4 +1,5 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import { WalletButton } from './WalletButton';
 
 const LINKS = [
   { to: '/', label: 'Home', end: true },
@@ -26,22 +27,25 @@ export function Layout() {
             <Brand />
           </NavLink>
 
-          <nav className="flex items-center gap-1">
-            {LINKS.map((l) => (
-              <NavLink
-                key={l.to}
-                to={l.to}
-                end={l.end}
-                className={({ isActive }) =>
-                  `rounded-[2px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest2 transition ${
-                    isActive ? 'text-crimson-bright' : 'text-bone-faint hover:text-bone'
-                  }`
-                }
-              >
-                {l.label}
-              </NavLink>
-            ))}
-          </nav>
+          <div className="flex items-center gap-4">
+            <nav className="flex items-center gap-1">
+              {LINKS.map((l) => (
+                <NavLink
+                  key={l.to}
+                  to={l.to}
+                  end={l.end}
+                  className={({ isActive }) =>
+                    `rounded-[2px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest2 transition ${
+                      isActive ? 'text-crimson-bright' : 'text-bone-faint hover:text-bone'
+                    }`
+                  }
+                >
+                  {l.label}
+                </NavLink>
+              ))}
+            </nav>
+            <WalletButton />
+          </div>
         </div>
       </header>
 

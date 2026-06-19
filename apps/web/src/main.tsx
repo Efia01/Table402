@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
+import { WalletProvider } from './lib/WalletProvider';
 import { Layout } from './components/Layout';
 import { LandingPage } from './pages/LandingPage';
 import { LobbyPage } from './pages/LobbyPage';
@@ -23,6 +24,7 @@ function GraphRedirect() {
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
+      <WalletProvider>
       <BrowserRouter>
         <Routes>
           {/* Landing stands alone — no chrome, edge to edge. */}
@@ -37,6 +39,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
           </Route>
         </Routes>
       </BrowserRouter>
+      </WalletProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 );
