@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import type { HandStateDTO, ReceiptDTO, WsEvent } from '@table402/shared';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { HandStateDTO, ReceiptDTO, WsCommand, WsEvent } from '@table402/shared';
 
 export interface ActionFeedItem {
   id: string;
@@ -25,6 +25,15 @@ export interface HandResultBanner {
   results: Array<{ seat: number; label: string; delta: number; bankrollAfter: number }>;
 }
 
+export interface RetreatOutcome {
+  agentId: string;
+  mode: 'retreat' | 'sit-out';
+  refunded: number;
+  currency: string;
+  error: string | null;
+  t: number;
+}
+
 export interface TableFeed {
   connected: boolean;
   hand: HandStateDTO | null;
@@ -33,6 +42,7 @@ export interface TableFeed {
   logs: LogItem[];
   lastComplete: HandResultBanner | null;
   graphTick: number;
+  retreat: RetreatOutcome | null;
 }
 
 const EMPTY: TableFeed = {
@@ -43,6 +53,7 @@ const EMPTY: TableFeed = {
   logs: [],
   lastComplete: null,
   graphTick: 0,
+  retreat: null,
 };
 
 let seq = 0;
@@ -80,12 +91,34 @@ function reduce(f: TableFeed, msg: WsEvent): TableFeed {
         ...f,
         logs: [{ id: `l${seq++}`, level: msg.level, message: msg.message, t: Date.now() }, ...f.logs].slice(0, 80),
       };
+    case 'retreat-complete':
+      return {
+        ...f,
+        retreat: {
+          agentId: msg.agentId,
+          mode: msg.mode,
+          refunded: msg.refunded,
+          currency: msg.currency,
+          error: null,
+          t: Date.now(),
+        },
+      };
+    case 'retreat-error':
+      return {
+        ...f,
+        retreat: { agentId: '', mode: 'retreat', refunded: 0, currency: '', error: msg.message, t: Date.now() },
+      };
     default:
       return f;
   }
 }
 
-export function useTableFeed(tableId: string): TableFeed {
+export interface TableConnection {
+  feed: TableFeed;
+  send: (cmd: WsCommand) => boolean;
+}
+
+export function useTableFeed(tableId: string): TableConnection {
   const [feed, setFeed] = useState<TableFeed>(EMPTY);
   const ref = useRef<WebSocket | null>(null);
 
@@ -119,5 +152,12 @@ export function useTableFeed(tableId: string): TableFeed {
     };
   }, [tableId]);
 
-  return feed;
+  const send = useCallback((cmd: WsCommand) => {
+    const ws = ref.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    ws.send(JSON.stringify(cmd));
+    return true;
+  }, []);
+
+  return { feed, send };
 }

@@ -193,5 +193,24 @@ export const WsEvent = z.discriminatedUnion('type', [
   z.object({ type: z.literal('graph'), handId: z.string() }),
   z.object({ type: z.literal('table-idle') }),
   z.object({ type: z.literal('log'), level: z.enum(['info', 'warn', 'error']), message: z.string() }),
+  z.object({
+    type: z.literal('retreat-complete'),
+    clientId: z.string(),
+    agentId: z.string(),
+    mode: z.enum(['retreat', 'sit-out']),
+    refunded: z.number().int(),
+    currency: z.string(),
+  }),
+  z.object({
+    type: z.literal('retreat-error'),
+    clientId: z.string(),
+    message: z.string(),
+  }),
 ]);
 export type WsEvent = z.infer<typeof WsEvent>;
+
+export const WsCommand = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('retreat'), clientId: z.string() }),
+  z.object({ type: z.literal('sit-out'), clientId: z.string() }),
+]);
+export type WsCommand = z.infer<typeof WsCommand>;

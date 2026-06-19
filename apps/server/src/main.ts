@@ -168,7 +168,7 @@ async function bootstrap(): Promise<void> {
   registerReceiptRoutes(app, ctx);
   registerDiscoveryRoutes(app, ctx, registry);
   registerControlRoutes(app, ctx, controller);
-  registerPlayWebSocket(app, ctx);
+  registerPlayWebSocket(app, ctx, controller);
 
   app.setErrorHandler((err: unknown, _req, reply) => {
     const status = (err as { statusCode?: number }).statusCode ?? 500;

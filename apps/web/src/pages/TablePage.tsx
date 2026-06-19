@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -9,6 +10,7 @@ import { PlayingCard, CardRow } from '../components/PlayingCard';
 import { PlayerHand } from '../components/PlayerHand';
 import { BankrollPanel, fmtChips } from '../components/BankrollPanel';
 import { JoinTableModal } from '../components/JoinTableModal';
+import { TacticalRetreat } from '../components/TacticalRetreat';
 import { useClientId } from '../lib/clientId';
 import { Panel, Empty } from '../components/primitives';
 
@@ -169,7 +171,7 @@ export function TablePage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const detail = useQuery({ queryKey: ['table', id], queryFn: () => api.table(id), refetchInterval: 4000 });
-  const feed = useTableFeed(id);
+  const { feed, send } = useTableFeed(id);
 
   const statusQ = useQuery({
     queryKey: ['agentStatus', clientId],
@@ -229,6 +231,29 @@ export function TablePage() {
     await qc.invalidateQueries({ queryKey: ['agentStatus', clientId] });
     navigate('/');
   }
+
+  const myAgentId = mine?.agentId ?? null;
+  const handledRetreat = useRef(0);
+  function sitOut(): boolean {
+    return send({ type: 'sit-out', clientId });
+  }
+  function retreat(): boolean {
+    return send({ type: 'retreat', clientId });
+  }
+
+  useEffect(() => {
+    const r = feed.retreat;
+    if (!r || r.t === handledRetreat.current) return;
+    if (r.error) {
+      handledRetreat.current = r.t;
+      return;
+    }
+    if (myAgentId && r.agentId === myAgentId) {
+      handledRetreat.current = r.t;
+      void qc.invalidateQueries({ queryKey: ['agentStatus', clientId] });
+      if (r.mode === 'retreat') navigate('/');
+    }
+  }, [feed.retreat, myAgentId, clientId, qc, navigate]);
 
   return (
     <div className="space-y-5">
@@ -341,6 +366,14 @@ export function TablePage() {
         <div className="pt-2">
           <BankrollPanel mine={mine} tick={feed.lastComplete?.handId ?? ''} />
         </div>
+      )}
+      {mine && (
+        <TacticalRetreat
+          mine={mine}
+          connected={feed.connected}
+          onSitOut={sitOut}
+          onRetreat={retreat}
+        />
       )}
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">

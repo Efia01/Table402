@@ -156,14 +156,37 @@ export class AgentController {
 
   /** Stop + remove the caller's agent. Clears house bots once nobody is playing. */
   async stop(clientId: string): Promise<boolean> {
+    const r = await this.retreat(clientId);
+    return r !== null;
+  }
+
+  /**
+   * Tactical Retreat — the capital-protection exit. Severs the agent's MPP
+   * session, refunds the unspent escrowed voucher balance, folds/abandons the
+   * live hand, and frees the seat. Returns the agent id and the refunded amount.
+   */
+  async retreat(clientId: string): Promise<{ agentId: string; refunded: number } | null> {
     const m = this.users.get(clientId);
-    if (!m) return false;
+    if (!m) return null;
+    const agentId = m.spec.id;
     this.users.delete(clientId);
     m.runtime.stop();
+    const refunded = await this.ctx.table.leave(agentId).then((r) => r.refunded ?? 0);
     await m.runtime.leave();
-    // Only tear down bots when no users are active AND none are mid-start.
     if (this.users.size === 0 && this.starting.size === 0) await this.removeBots();
-    return true;
+    return { agentId, refunded };
+  }
+
+  /**
+   * Sit Out — keep the seat and the open MPP session, but stop the agent from
+   * acting. No refund, no fold; the operator can resume by re-enabling autopilot.
+   */
+  sitOut(clientId: string): { agentId: string } | null {
+    const m = this.users.get(clientId);
+    if (!m) return null;
+    if (m.autopilot) m.runtime.pause();
+    m.autopilot = false;
+    return { agentId: m.spec.id };
   }
 
   private async ensureBots(): Promise<void> {
