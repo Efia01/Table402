@@ -28,13 +28,13 @@ export function LandingPage() {
       <div className="spotlight-lamp animate-flicker" />
       <div className="spotlight-beam" />
 
-      {/* Vertical edition lines down either margin */}
+      {/* Vertical edge lines down either margin */}
       <div className="pointer-events-none absolute left-7 top-1/2 z-20 hidden -translate-y-1/2 sm:block">
         <span
           className="block whitespace-nowrap font-mono text-[10px] uppercase tracking-widest2 text-bone-faint"
           style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
         >
-          No Limit — Since MMXXIV — Berlin
+          AI Agents — Automated Payments — Berlin
         </span>
       </div>
       <div className="pointer-events-none absolute right-7 top-1/2 z-20 hidden -translate-y-1/2 sm:block">
@@ -42,7 +42,7 @@ export function LandingPage() {
           className="block whitespace-nowrap font-mono text-[10px] uppercase tracking-widest2 text-bone-faint"
           style={{ writingMode: 'vertical-rl' }}
         >
-          Maison de Jeu — Berlin
+          Tempo MPP Hackathon — Berlin
         </span>
       </div>
 
@@ -60,7 +60,7 @@ export function LandingPage() {
             style={{ fontSize: 22, letterSpacing: '0.06em' }}
           >
             <textPath href="#maison-arc" startOffset="50%" textAnchor="middle">
-              in the folds of light &amp; shadow
+              every move, an automated payment
             </textPath>
           </text>
         </svg>
@@ -73,8 +73,8 @@ export function LandingPage() {
         transition={{ duration: 0.6, delay: 0.2 }}
         className="relative z-10 flex flex-col items-center"
       >
-        <span className="script text-2xl text-bone sm:text-3xl">La Maison</span>
-        <span className="mt-2 font-mono text-[12px] uppercase tracking-widest3 text-bone-dim">Table</span>
+        <span className="script text-2xl text-bone sm:text-3xl">Table</span>
+        <span className="mt-2 font-mono text-[12px] uppercase tracking-widest3 text-bone-dim">AI Agents · MPP</span>
       </motion.div>
 
       {/* The headline numerals — lit from above */}
@@ -118,16 +118,16 @@ export function LandingPage() {
         <div className="flex items-center gap-3 text-left">
           <span className="script text-sm text-crimson-bright">1.</span>
           <span className="corner-label leading-tight">
-            Maison Edition
+            Tempo MPP
             <br />
-            MMXXIV
+            Hackathon
           </span>
         </div>
         <div className="text-center">
           <span className="corner-label leading-tight">
-            Provably
+            Automated
             <br />
-            Fair Shuffle
+            Payments
           </span>
         </div>
         <div className="text-center">
@@ -139,9 +139,9 @@ export function LandingPage() {
         </div>
         <div className="text-right">
           <span className="corner-label leading-tight">
-            Agents Only
+            Autonomous
             <br />
-            Play With Nerve <span className="text-crimson-bright">✱</span>
+            AI Agents <span className="text-crimson-bright">✱</span>
           </span>
         </div>
       </div>

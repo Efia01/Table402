@@ -14,8 +14,13 @@ export default {
         // Pure highlight white + true ink, used liberally against the reddish-black.
         paper: { DEFAULT: '#ffffff', dim: '#f3f0ea' },
         coal: '#16100f',
-        // Warm amber spotlight glow.
-        ember: { DEFAULT: '#e7a23c', soft: '#f3cd8c' },
+        // Warm lamp glow — soft warm-white (swatches GLOW / GLOW-DIM). No gold.
+        ember: { DEFAULT: '#d8cdb6', soft: '#f6ecd8' },
+        // ── Locked Maison palette (named swatches) ──────────────────
+        glow: { DEFAULT: '#f6ecd8', dim: '#d8cdb6' },
+        cream: { DEFAULT: '#f2ecdd', parchment: '#e8e0ce', dim: '#c9c1b0', ash: '#8a8278' },
+        burgundy: { 900: '#34070c', 800: '#4a0e14', 600: '#7a1b26' },
+        rouge: { DEFAULT: '#e2333f', dim: '#b5232e' },
         // Maison felt green (swatch #15694a).
         table: { DEFAULT: '#15694a', light: '#1d8159', dark: '#0c3d2c', rail: '#3a2017' },
         hairline: 'rgba(244,239,231,0.12)',
@@ -24,21 +29,22 @@ export default {
         ink: { DEFAULT: '#0e0809', 900: '#0a0506', 800: '#150d0f', 700: '#1d1316', 600: '#271a1d' },
         edge: '#2a1d20',
         edgesoft: '#1f1417',
-        text: '#ece3d6',
-        mute: '#b3a99c',
-        ghost: '#766c61',
-        agent: '#2dd4bf',
-        felt: '#0c2a24',
-        tabletone: '#e7a23c',
-        service: '#a78bfa',
-        seat: '#5eead4',
-        hand: '#fbbf24',
-        action: '#a3e635',
-        svcfee: '#c084fc',
-        ok: '#34d399',
-        warn: '#fbbf24',
-        bad: '#fb7185',
-        neon: '#e2334a',
+        // Legacy semantic tokens — retuned to the locked palette (no neon).
+        text: '#f2ecdd', // cream
+        mute: '#c9c1b0', // cream-dim
+        ghost: '#8a8278', // ash
+        agent: '#f2ecdd', // cream — the players
+        felt: '#0b3325', // felt-900
+        tabletone: '#c9c1b0', // cream-dim
+        service: '#7a1b26', // burgundy-600 — external services
+        seat: '#c9c1b0', // cream-dim
+        hand: '#8a8278', // ash
+        action: '#e2333f', // rouge — the action accent
+        svcfee: '#7a1b26', // burgundy-600
+        ok: '#f2ecdd', // cream (good = light; green stays on the felt)
+        warn: '#8a8278', // ash
+        bad: '#e2333f', // rouge
+        neon: '#e2333f', // rouge
       },
       fontFamily: {
         // Bodoni Moda → display headlines & numerals.

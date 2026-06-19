@@ -18,7 +18,7 @@ export function registerPlayWebSocket(app: FastifyInstance, ctx: AppContext): vo
 
     try {
       socket.send(JSON.stringify({ type: 'hello', tableId }));
-      const snapshot = ctx.table.snapshot();
+      const snapshot = (ctx.tableFor(tableId) ?? ctx.table).snapshot();
       if (snapshot) socket.send(JSON.stringify({ type: 'state', state: snapshot }));
     } catch {
       /* ignore */

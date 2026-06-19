@@ -64,7 +64,7 @@ export function FeeBadge({ kind }: { kind: string | null | undefined }) {
 }
 
 export function StatusDot({ ok }: { ok: boolean }) {
-  const color = ok ? '#34d399' : '#c8202f';
+  const color = ok ? '#f2ecdd' : '#e2333f';
   return (
     <span className="inline-flex items-center gap-1.5 text-xs uppercase tracking-wide" style={{ color }}>
       <span
@@ -77,7 +77,7 @@ export function StatusDot({ ok }: { ok: boolean }) {
 }
 
 export function LiveDot({ connected }: { connected: boolean }) {
-  const color = connected ? '#34d399' : '#c8202f';
+  const color = connected ? '#f2ecdd' : '#8a8278';
   return (
     <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-widest2 text-bone-dim">
       <span

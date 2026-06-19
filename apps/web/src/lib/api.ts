@@ -40,6 +40,8 @@ export interface MineStatus {
   archetype: string;
   seatIndex: number | null;
   autopilot: boolean;
+  /** The room this player is seated in. */
+  tableId?: string;
 }
 export interface AgentControlStatus {
   mine: MineStatus | null;
@@ -183,10 +185,14 @@ export const api = {
   graph: (id: string) => get<{ graph: GraphDTO }>(`/hands/${id}/graph`),
   agentStatus: (clientId: string) =>
     get<AgentControlStatus>(`/agents/status?clientId=${encodeURIComponent(clientId)}`),
-  startAgent: (clientId: string, opts: { name?: string; archetype?: string; buyIn?: number }) =>
-    post<{ ok: boolean; mine?: MineStatus; error?: string }>('/agents/start', { clientId, ...opts }),
+  startAgent: (
+    clientId: string,
+    opts: { name?: string; archetype?: string; buyIn?: number; tableId?: string },
+  ) => post<{ ok: boolean; mine?: MineStatus; error?: string }>('/agents/start', { clientId, ...opts }),
   stopAgent: (clientId: string) =>
     post<{ ok: boolean; stopped?: boolean }>('/agents/stop', { clientId }),
+  rebuy: (clientId: string, amount?: number) =>
+    post<{ ok: boolean; bankroll?: number; error?: string }>('/agents/rebuy', { clientId, amount }),
   setAutopilot: (clientId: string, on: boolean) =>
     post<{ ok: boolean; mine?: MineStatus }>('/agents/autopilot', { clientId, on }),
   agentView: (tableId: string, agentId: string) =>

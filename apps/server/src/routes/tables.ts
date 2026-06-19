@@ -17,18 +17,22 @@ import type { AppContext } from '../core/context';
 
 export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.get('/tables', async () => {
-    return { tables: [ctx.table.tableDTO()] };
+    return { tables: [...ctx.tables.values()].map((t) => t.tableDTO()) };
   });
 
-  app.get('/tables/:id', async (req) => {
+  app.get('/tables/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
-    if (id !== ctx.table.tableId) return { error: 'unknown table' };
+    const table = ctx.tableFor(id);
+    if (!table) {
+      reply.code(404);
+      return { error: 'unknown table' };
+    }
     return {
-      table: ctx.table.tableDTO(),
-      seats: ctx.table.seatsOverview(),
-      hand: ctx.table.snapshot(),
-      walletAddress: ctx.table.walletAddress,
-      balance: ctx.balanceOf(ctx.table.walletAddress),
+      table: table.tableDTO(),
+      seats: table.seatsOverview(),
+      hand: table.snapshot(),
+      walletAddress: table.walletAddress,
+      balance: ctx.balanceOf(table.walletAddress),
     };
   });
 
@@ -39,7 +43,12 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
       reply.code(400);
       return { error: 'agentId query param required' };
     }
-    const view = ctx.table.agentView(agentId);
+    const table = ctx.tableFor((req.params as { id: string }).id);
+    if (!table) {
+      reply.code(404);
+      return { view: null };
+    }
+    const view = table.agentView(agentId);
     return { view };
   });
 
@@ -47,15 +56,23 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
   app.post(
     '/tables/:id/join',
     {
-      preHandler: requirePayment(ctx.mpp, () => ({
-        amount: ctx.table.seatFee,
-        recipient: ctx.table.walletAddress,
-        currency: ctx.table.currency,
-        kind: 'seat-fee',
-        description: `Seat fee for ${ctx.table.name}`,
-      })),
+      preHandler: requirePayment(ctx.mpp, (req) => {
+        const table = ctx.tableFor((req.params as { id: string }).id) ?? ctx.table;
+        return {
+          amount: table.seatFee,
+          recipient: table.walletAddress,
+          currency: table.currency,
+          kind: 'seat-fee',
+          description: `Seat fee for ${table.name}`,
+        };
+      }),
     },
     async (req, reply) => {
+      const table = ctx.tableFor((req.params as { id: string }).id);
+      if (!table) {
+        reply.code(404);
+        return { ok: false, error: 'unknown table' };
+      }
       const receipt = req.mppReceipt!;
       const did = receipt.source;
       const address = didToAddress(did);
@@ -76,7 +93,7 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
         .onConflictDoUpdate({ target: agentsTable.id, set: { name, archetype, did, address } });
 
       try {
-        const { seatIndex, sessionId } = await ctx.table.join({
+        const { seatIndex, sessionId } = await table.join({
           agentId,
           name,
           archetype,
@@ -92,9 +109,9 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
         // (e.g. the session escrow couldn't open) — refund it so funds aren't burned.
         try {
           ctx.provider.settleCharge({
-            from: ctx.table.walletAddress,
+            from: table.walletAddress,
             to: address,
-            currency: ctx.table.currency,
+            currency: table.currency,
             amount: Number(receipt.settlement.amount),
             reference: `seat-fee-refund:${receipt.challengeId}`,
           });
@@ -109,11 +126,16 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
 
   // --- Action: session voucher OR per-action 402 charge ---
   app.post('/tables/:id/action', async (req, reply) => {
+    const table = ctx.tableFor((req.params as { id: string }).id);
+    if (!table) {
+      reply.code(404);
+      return { ok: false, error: 'unknown table' };
+    }
     const body = ActionRequest.parse(req.body);
-    const sessionId = ctx.table.hasOpenSession(body.agentId);
+    const sessionId = table.hasOpenSession(body.agentId);
 
     if (sessionId) {
-      await ctx.table.submitAction(body.agentId, { type: body.type, amount: body.amount });
+      await table.submitAction(body.agentId, { type: body.type, amount: body.amount });
       return { ok: true, paidVia: 'session' };
     }
 
@@ -122,9 +144,9 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
     if (!auth || !/^Payment\s+/i.test(auth)) {
       const challenge = ctx.mpp.createChallenge({
         intent: 'charge',
-        amount: ctx.table.perActionFee,
-        currency: ctx.table.currency,
-        recipient: ctx.table.walletAddress,
+        amount: table.perActionFee,
+        currency: table.currency,
+        recipient: table.walletAddress,
         description: 'Per-action fee',
       });
       const problem = new MppError(
@@ -146,7 +168,7 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
       const credential = decodeJson(auth.replace(/^Payment\s+/i, '').trim());
       receipt = await ctx.mpp.verifyCredential(credential, {
         kind: 'action-fee',
-        handId: ctx.table.currentHandId() ?? undefined,
+        handId: table.currentHandId() ?? undefined,
       });
     } catch (err) {
       if (err instanceof MppError) {
@@ -155,7 +177,7 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
       }
       throw err;
     }
-    await ctx.table.submitAction(
+    await table.submitAction(
       body.agentId,
       { type: body.type, amount: body.amount },
       { prepaidReceipt: receipt },
@@ -164,17 +186,24 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
     return { ok: true, paidVia: 'charge' };
   });
 
-  app.post('/tables/:id/leave', async (req) => {
+  app.post('/tables/:id/leave', async (req, reply) => {
+    const table = ctx.tableFor((req.params as { id: string }).id);
+    if (!table) {
+      reply.code(404);
+      return { ok: false, error: 'unknown table' };
+    }
     const body = (req.body ?? {}) as { agentId?: string };
     if (!body.agentId) return { ok: false, error: 'agentId required' };
-    const result = await ctx.table.leave(body.agentId);
+    const result = await table.leave(body.agentId);
     return { ok: result.left, refunded: result.refunded };
   });
 
   // --- Agents directory (lobby) ---
   app.get('/agents', async () => {
     const rows = await db.select().from(agentsTable);
-    const seated = new Set(ctx.table.seatsOverview().map((s) => s.agentId).filter(Boolean));
+    const seated = new Set(
+      [...ctx.tables.values()].flatMap((t) => t.seatsOverview().map((s) => s.agentId)).filter(Boolean),
+    );
     const out = await Promise.all(
       rows.map(async (a) => ({
         id: a.id,

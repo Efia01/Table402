@@ -188,7 +188,7 @@ export function HandReplayPage() {
                     </span>
                     <span
                       className="stat-num"
-                      style={{ color: r.delta > 0 ? '#46b187' : r.delta < 0 ? '#c8202f' : '#766c61' }}
+                      style={{ color: r.delta > 0 ? '#f2ecdd' : r.delta < 0 ? '#e2333f' : '#8a8278' }}
                     >
                       {r.delta > 0 ? '+' : ''}
                       {fmtChips(r.delta)}

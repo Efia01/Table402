@@ -45,7 +45,10 @@ export class AppContext {
   readonly wallets: WalletRegistry;
   readonly hub: Hub;
   readonly config: AppConfig;
+  /** The default room (first table) — kept for healthz, ws fallback, legacy callers. */
   table!: TableRuntime;
+  /** Every live room, keyed by table id. */
+  readonly tables = new Map<string, TableRuntime>();
 
   constructor(config: AppConfig) {
     this.config = config;
@@ -53,6 +56,11 @@ export class AppContext {
     this.mpp = new MppServer({ secret: config.secret, provider: this.provider, realm: 'table402.local' });
     this.wallets = new WalletRegistry();
     this.hub = new Hub();
+  }
+
+  /** Resolve a live room by id (falls back to undefined for unknown ids). */
+  tableFor(id: string): TableRuntime | undefined {
+    return this.tables.get(id);
   }
 
   balanceOf(address: string): number {

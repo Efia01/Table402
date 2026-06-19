@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { deriveIdentity } from '@table402/mpp';
 import {
   DEFAULT_TABLE,
+  TABLES,
   SERVICE_FEES,
   SERVICE_IDS,
   SIM_USD,
@@ -21,7 +22,7 @@ import { runMigrations } from './db/migrate';
 import { seedDatabase } from './db/seed';
 import { AppContext } from './core/context';
 import { TableRuntime, type TableConfigRow } from './game/table-runtime';
-import { AgentController } from './game/agent-controller';
+import { AgentController, ControllerHub } from './game/agent-controller';
 import { ServiceRegistry } from './discovery/registry';
 import { registerTableRoutes } from './routes/tables';
 import { registerHandRoutes } from './routes/hands';
@@ -33,22 +34,7 @@ import { registerRngService } from './services/rng';
 import { registerRefereeService } from './services/referee';
 import { registerCommentaryService } from './services/commentary';
 
-async function ensureSeeded(): Promise<TableConfigRow> {
-  let row: typeof tables.$inferSelect | undefined;
-  try {
-    row = await db.select().from(tables).where(eq(tables.id, DEFAULT_TABLE.id)).get();
-  } catch {
-    runMigrations();
-  }
-  if (!row) {
-    try {
-      await seedDatabase();
-    } catch {
-      /* tolerate partial seed */
-    }
-    row = await db.select().from(tables).where(eq(tables.id, DEFAULT_TABLE.id)).get();
-  }
-  if (!row) throw new Error('Could not initialize the database. Run `pnpm db:setup`.');
+function toConfig(row: typeof tables.$inferSelect): TableConfigRow {
   return {
     id: row.id,
     name: row.name,
@@ -64,18 +50,45 @@ async function ensureSeeded(): Promise<TableConfigRow> {
   };
 }
 
+/** Ensure every maison room exists in the DB, then return their configs. */
+async function ensureSeeded(): Promise<TableConfigRow[]> {
+  try {
+    await db.select().from(tables).where(eq(tables.id, DEFAULT_TABLE.id)).get();
+  } catch {
+    runMigrations();
+  }
+  // seedDatabase upserts (onConflictDoNothing), so this backfills any new rooms.
+  try {
+    await seedDatabase();
+  } catch {
+    /* tolerate partial seed */
+  }
+  const rows: TableConfigRow[] = [];
+  for (const t of TABLES) {
+    const row = await db.select().from(tables).where(eq(tables.id, t.id)).get();
+    if (row) rows.push(toConfig(row));
+  }
+  if (rows.length === 0) throw new Error('Could not initialize the database. Run `pnpm db:setup`.');
+  return rows;
+}
+
 async function bootstrap(): Promise<void> {
   const config = loadConfig();
   const ctx = new AppContext(config);
-  const tableConfig = await ensureSeeded();
+  const tableConfigs = await ensureSeeded();
+  const defaultConfig = tableConfigs[0]!;
 
-  // --- Wallets: table, services, seeded agents ---
-  const tableIdentity = deriveIdentity(`table:${tableConfig.id}`);
-  ctx.wallets.register(
-    { id: `table:${tableConfig.id}`, label: tableConfig.name, type: 'table', address: tableIdentity.address, did: tableIdentity.did },
-    tableIdentity,
-  );
-  ctx.fund(tableIdentity.address, TABLE_FAUCET, 'table-faucet');
+  // --- Wallets: every room's table, services, seeded agents ---
+  const tableIdentities = new Map<string, ReturnType<typeof deriveIdentity>>();
+  for (const tc of tableConfigs) {
+    const identity = deriveIdentity(`table:${tc.id}`);
+    tableIdentities.set(tc.id, identity);
+    ctx.wallets.register(
+      { id: `table:${tc.id}`, label: tc.name, type: 'table', address: identity.address, did: identity.did },
+      identity,
+    );
+    ctx.fund(identity.address, TABLE_FAUCET, 'table-faucet');
+  }
 
   const serviceLabels: Record<string, string> = {
     [SERVICE_IDS.rng]: 'RNG service',
@@ -96,19 +109,27 @@ async function bootstrap(): Promise<void> {
     ctx.fund(a.address, AGENT_FAUCET, 'faucet');
   }
 
-  // --- Runtime + web-driven agent controller ---
-  ctx.table = new TableRuntime(ctx, tableConfig, tableIdentity);
+  // --- Runtimes + web-driven agent controllers (one room each) ---
+  const controllers = new Map<string, AgentController>();
+  for (const tc of tableConfigs) {
+    const runtime = new TableRuntime(ctx, tc, tableIdentities.get(tc.id)!);
+    ctx.tables.set(tc.id, runtime);
+    controllers.set(
+      tc.id,
+      new AgentController(ctx, {
+        baseUrl: config.publicBaseUrl,
+        tableId: tc.id,
+        minPlayers: config.minPlayers,
+        maxSeats: tc.maxSeats,
+        thinkMinMs: config.agentThinkMinMs,
+        thinkMaxMs: config.agentThinkMaxMs,
+        startingChips: tc.startingChips,
+      }),
+    );
+  }
+  ctx.table = ctx.tables.get(defaultConfig.id)!;
+  const hub = new ControllerHub(controllers);
   await ctx.snapshotBalances();
-
-  const controller = new AgentController(ctx, {
-    baseUrl: config.publicBaseUrl,
-    tableId: tableConfig.id,
-    minPlayers: config.minPlayers,
-    maxSeats: tableConfig.maxSeats,
-    thinkMinMs: config.agentThinkMinMs,
-    thinkMaxMs: config.agentThinkMaxMs,
-    startingChips: tableConfig.startingChips,
-  });
 
   // --- Service registry (local services + remote discovery) ---
   const base = config.publicBaseUrl;
@@ -158,7 +179,11 @@ async function bootstrap(): Promise<void> {
     currency: SIM_USD.code,
     endpoints: ['/tables', '/agents', '/receipts', '/hands/:id', '/hands/:id/graph', '/discovery/services', '/openapi.json', '/play (ws)'],
   }));
-  app.get('/healthz', async () => ({ ok: true, hands: ctx.table.completedHands }));
+  app.get('/healthz', async () => ({
+    ok: true,
+    hands: [...ctx.tables.values()].reduce((n, t) => n + t.completedHands, 0),
+    tables: ctx.tables.size,
+  }));
 
   registerRngService(app, ctx);
   registerRefereeService(app, ctx);
@@ -167,7 +192,7 @@ async function bootstrap(): Promise<void> {
   registerHandRoutes(app, ctx);
   registerReceiptRoutes(app, ctx);
   registerDiscoveryRoutes(app, ctx, registry);
-  registerControlRoutes(app, ctx, controller);
+  registerControlRoutes(app, ctx, hub);
   registerPlayWebSocket(app, ctx);
 
   app.setErrorHandler((err: unknown, _req, reply) => {
@@ -176,8 +201,12 @@ async function bootstrap(): Promise<void> {
   });
 
   await app.listen({ host: config.host, port: config.port });
+  // Seat self-funding house bots in every room so the lobby is alive & choosable
+  // (the server must be listening first — bots join over HTTP).
+  void hub.prefillAll().catch(() => {});
   console.log(`\n  ▟ Table402 server  →  http://${config.host}:${config.port}`);
-  console.log(`    table: ${tableConfig.name} · seat ${formatUsd(tableConfig.seatFee)} · hand ${formatUsd(tableConfig.perHandFee)} · action ${formatUsd(tableConfig.perActionFee)}`);
+  console.log(`    rooms: ${tableConfigs.map((t) => t.name).join(' · ')}`);
+  console.log(`    table: ${defaultConfig.name} · seat ${formatUsd(defaultConfig.seatFee)} · hand ${formatUsd(defaultConfig.perHandFee)} · action ${formatUsd(defaultConfig.perActionFee)}`);
   console.log(`    services: RNG ${formatUsd(SERVICE_FEES.rng)} · Referee ${formatUsd(SERVICE_FEES.referee)} · Commentary ${formatUsd(SERVICE_FEES.commentary)}`);
   console.log(`    commentary: ${config.anthropicApiKey ? 'Claude (claude-haiku-4-5)' : 'template (set ANTHROPIC_API_KEY for Claude)'}`);
   console.log(`    discovery: GET /discovery/services · /openapi.json\n`);

@@ -10,7 +10,8 @@ export function fmtChips(n: number): string {
 }
 
 function Delta({ n }: { n: number }) {
-  const color = n > 0 ? '#34d399' : n < 0 ? '#c8202f' : '#766c61';
+  // Gains read in bright ivory, losses in rouge — no green off the felt.
+  const color = n > 0 ? '#f2ecdd' : n < 0 ? '#e2333f' : '#8a8278';
   return (
     <span className="stat-num" style={{ color }}>
       {n > 0 ? '+' : ''}

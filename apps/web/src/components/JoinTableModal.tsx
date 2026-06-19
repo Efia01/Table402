@@ -9,22 +9,6 @@ import { fmtChips } from './BankrollPanel';
 
 const NAME_KEY = 'table402.name';
 
-/** A standard poker table-size label from the seat count. */
-function tableSize(maxSeats: number): string {
-  if (maxSeats <= 2) return 'Heads-up';
-  if (maxSeats <= 6) return `${maxSeats}-max`;
-  return 'Full ring';
-}
-
-function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">{label}</span>
-      <span className={`stat-num text-sm ${accent ? 'text-crimson-bright' : 'text-bone'}`}>{value}</span>
-    </div>
-  );
-}
-
 export function JoinTableModal({
   open,
   onClose,
@@ -78,6 +62,18 @@ export function JoinTableModal({
   if (!open) return null;
 
   const bb = selected && selected.bigBlind > 0 ? Math.round(buyIn / selected.bigBlind) : 0;
+  const full = !!selected && selected.seatedCount >= selected.maxSeats;
+  const cannotSeat = !selected || full;
+  // Why the seat button is unavailable — surfaced so it's never a silent dead end.
+  const seatBlockedReason = joining
+    ? null
+    : !selected
+      ? tablesQ.isLoading
+        ? 'Loading tables…'
+        : 'No table available — is the server running?'
+      : full
+        ? 'This table is full — wait for a seat to open.'
+        : null;
 
   async function takeSeat() {
     if (!selected || joining) return;
@@ -88,7 +84,11 @@ export function JoinTableModal({
       // Taking a seat is always a fresh session — stand up from any prior seat
       // first so the P&L log + Net P&L reset to zero (the bankroll itself carries).
       await api.stopAgent(clientId).catch(() => {});
-      const res = await api.startAgent(clientId, { name: name.trim() || undefined, buyIn });
+      const res = await api.startAgent(clientId, {
+        name: name.trim() || undefined,
+        buyIn,
+        tableId: selected.id,
+      });
       if (!res.ok) {
         setError(res.error ?? 'Could not take a seat. The table may be full.');
         setJoining(false);
@@ -130,13 +130,10 @@ export function JoinTableModal({
           {/* Header */}
           <div className="flex items-start justify-between gap-4 border-b border-hairline px-7 py-5">
             <div>
-              <span className="font-mono text-[10px] uppercase tracking-widest3 text-crimson-bright">La Maison</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest3 text-crimson-bright">Table 402</span>
               <h2 className="mt-1 font-display text-3xl font-semibold tracking-tight text-bone">
                 Take your seat
               </h2>
-              <p className="mt-1 text-sm text-bone-dim">
-                Choose a table and decide how much of your bank to bring.
-              </p>
             </div>
             <div className="rounded-[3px] border border-hairline bg-noir-900/60 px-4 py-2 text-right">
               <div className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">Bank account</div>
@@ -160,9 +157,9 @@ export function JoinTableModal({
             {/* Table selection */}
             <div>
               <label className="label">Choose a table</label>
-              <div className="mt-2 space-y-2.5">
+              <div className="mt-2 divide-y divide-hairline overflow-hidden rounded-[3px] border border-hairline">
                 {tables.length === 0 && (
-                  <div className="rounded-md border border-hairline bg-noir-900/40 px-4 py-6 text-center text-sm text-bone-faint">
+                  <div className="px-4 py-5 text-center font-mono text-[11px] uppercase tracking-widest2 text-bone-faint">
                     {tablesQ.isLoading ? 'Loading tables…' : 'No tables available right now.'}
                   </div>
                 )}
@@ -173,40 +170,30 @@ export function JoinTableModal({
                     <button
                       key={t.id}
                       onClick={() => setSelectedId(t.id)}
-                      className={`flex w-full items-center justify-between gap-4 rounded-[3px] border px-5 py-3.5 text-left transition ${
-                        isSel
-                          ? 'border-crimson-bright/70 bg-crimson-bright/[0.08]'
-                          : 'border-hairline bg-noir-800/40 hover:border-bone-faint'
+                      className={`flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left transition ${
+                        isSel ? 'bg-crimson-bright/[0.1]' : 'bg-noir-800/30 hover:bg-noir-700/40'
                       }`}
                     >
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-display text-lg font-semibold text-bone">{t.name}</span>
-                          <span className="chip border-hairline text-bone-dim">
-                            No-Limit Hold&rsquo;em
-                          </span>
-                        </div>
-                        <div className="mt-0.5 text-xs text-bone-dim">
-                          {tableSize(t.maxSeats)} · blinds{' '}
-                          <span className="stat-num text-bone">
-                            {fmtChips(t.smallBlind)}/{fmtChips(t.bigBlind)}
-                          </span>{' '}
-                          · {t.handsPlayed} hands played
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-6">
-                        <Stat label="Seated" value={`${t.seatedCount}/${t.maxSeats}`} />
+                      <div className="flex min-w-0 items-baseline gap-2.5">
                         <span
-                          className={`grid h-5 w-5 place-items-center rounded-full border text-[11px] ${
+                          className={`grid h-3.5 w-3.5 shrink-0 place-items-center self-center rounded-full border text-[8px] ${
                             isSel ? 'border-crimson-bright bg-crimson-bright text-paper' : 'border-bone-faint text-transparent'
                           }`}
                         >
                           ✓
                         </span>
-                        {full && !isSel && (
-                          <span className="text-[10px] uppercase tracking-widest2 text-bone-faint">full</span>
-                        )}
+                        <span className="truncate font-display text-base font-semibold text-bone">{t.name}</span>
+                        <span className="shrink-0 stat-num text-[11px] text-bone-faint">
+                          {fmtChips(t.smallBlind)}/{fmtChips(t.bigBlind)}
+                        </span>
                       </div>
+                      <span
+                        className={`shrink-0 font-mono text-[11px] uppercase tracking-widest2 ${
+                          full ? 'text-crimson-soft' : 'text-bone-dim'
+                        }`}
+                      >
+                        {full ? 'Full' : `${t.seatedCount}/${t.maxSeats}`}
+                      </span>
                     </button>
                   );
                 })}
@@ -232,11 +219,8 @@ export function JoinTableModal({
                   onChange={(e) => setBuyIn(Number(e.target.value))}
                   className="mt-3 h-1 w-full cursor-pointer appearance-none rounded-full bg-noir-600 accent-crimson-bright"
                 />
-                <div className="mt-1.5 flex justify-between text-[11px] text-bone-faint">
+                <div className="mt-1.5 flex justify-between font-mono text-[11px] uppercase tracking-widest2 text-bone-faint">
                   <span>min {fmtChips(bounds.min)}</span>
-                  <span>
-                    you bring this much each hand · capped at your bank ({fmtChips(bankroll)})
-                  </span>
                   <span>max {fmtChips(bounds.max)}</span>
                 </div>
               </div>
@@ -254,14 +238,21 @@ export function JoinTableModal({
             <button onClick={onClose} className="btn">
               Cancel
             </button>
-            <button
-              onClick={takeSeat}
-              disabled={!selected || joining || selected.seatedCount >= selected.maxSeats}
-              className="btn-hero disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {joining ? 'Taking your seat…' : 'Take your seat'}
-              <span>→</span>
-            </button>
+            <div className="flex items-center gap-4">
+              {seatBlockedReason && (
+                <span className="font-mono text-[11px] uppercase tracking-widest2 text-bone-faint">
+                  {seatBlockedReason}
+                </span>
+              )}
+              <button
+                onClick={takeSeat}
+                disabled={cannotSeat || joining}
+                className="btn-hero disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {joining ? 'Taking your seat…' : 'Take your seat'}
+                <span>→</span>
+              </button>
+            </div>
           </div>
         </motion.div>
       </motion.div>

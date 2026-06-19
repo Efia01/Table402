@@ -51,7 +51,7 @@ export function Layout() {
 
       <footer className="border-t border-hairline px-5 py-4 text-center">
         <span className="corner-label">
-          Maison Edition MMXXIV · Berlin Node · testnet simulation · non-redeemable chips · no cash-out
+          Tempo MPP Hackathon · Berlin Node · automated agent payments · testnet simulation · non-redeemable chips · no cash-out
         </span>
       </footer>
     </div>

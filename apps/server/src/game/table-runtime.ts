@@ -285,6 +285,16 @@ export class TableRuntime {
     return seat?.sessionId ?? null;
   }
 
+  /** Top up a seated player's bankroll (a re-buy). Reflects in their stack when between hands. */
+  setSeatBankroll(agentId: string, bankroll: number): boolean {
+    const seat = this.seats.find((s) => s?.agentId === agentId);
+    if (!seat) return false;
+    seat.bankroll = bankroll;
+    const inHand = this.current?.participants.some((p) => p.agentId === agentId) ?? false;
+    if (!inHand) seat.stack = bankroll;
+    return true;
+  }
+
   /** Close an agent's session (refunding unspent escrow) and free its seat. */
   async leave(agentId: string): Promise<{ left: boolean; refunded?: number }> {
     const index = this.seats.findIndex((s) => s?.agentId === agentId);

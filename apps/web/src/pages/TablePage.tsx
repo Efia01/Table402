@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { SeatDTO } from '@table402/shared';
 import { api } from '../lib/api';
@@ -9,6 +10,7 @@ import { PlayingCard, CardRow } from '../components/PlayingCard';
 import { PlayerHand } from '../components/PlayerHand';
 import { BankrollPanel, fmtChips } from '../components/BankrollPanel';
 import { JoinTableModal } from '../components/JoinTableModal';
+import { OutOfMoneyModal } from '../components/OutOfMoneyModal';
 import { useClientId } from '../lib/clientId';
 import { Panel, Empty } from '../components/primitives';
 
@@ -111,13 +113,12 @@ function SeatPod({
         ) : null}
       </div>
 
-      {/* Committed chips below the plate */}
+      {/* Current bet + last action below the plate */}
       <div className="absolute left-1/2 top-[calc(100%+7px)] -translate-x-1/2 whitespace-nowrap">
         {folded ? (
           <span className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">Fold</span>
         ) : seat.committed > 0 ? (
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full border border-crimson-bright/60 bg-crimson" />
             <span className="stat-num text-[11px] text-bone">{fmtChips(seat.committed)}</span>
             {lastAction && (
               <span className="font-mono text-[10px] uppercase tracking-widest2 text-crimson-bright">{lastAction}</span>
@@ -163,6 +164,26 @@ function cleanLog(message: string): string {
     .trim();
 }
 
+// A run of board cards as they appear in commentary, e.g. "2s 6s 8c 8d Ac".
+const BOARD_RE = /Board:\s*((?:[2-9TJQKA][shdc])(?:\s+[2-9TJQKA][shdc])*)/;
+
+// Render a log line, turning its "Board: …" card codes into real mini cards.
+function LogLine({ message }: { message: string }) {
+  const m = message.match(BOARD_RE);
+  if (!m || m.index == null) return <>{message}</>;
+  const cards = m[1].split(/\s+/);
+  const before = message.slice(0, m.index); // text before "Board:"
+  const after = message.slice(m.index + m[0].length); // text after the cards
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-1.5 gap-y-1 align-middle">
+      <span>{before}</span>
+      <span className="label !text-bone-faint">Board</span>
+      <CardRow cards={cards} size="sm" />
+      <span>{after}</span>
+    </span>
+  );
+}
+
 export function TablePage() {
   const { id = '' } = useParams();
   const clientId = useClientId();
@@ -176,17 +197,24 @@ export function TablePage() {
     queryFn: () => api.agentStatus(clientId),
     refetchInterval: 2500,
   });
-  const mine = statusQ.data?.mine ?? null;
-  // Not seated yet → the join modal gates entry (pick a table & buy-in).
+  // "Mine" only counts on the room I'm actually seated in — viewing another room
+  // shows the join gate so I can take a seat there.
+  const rawMine = statusQ.data?.mine ?? null;
+  const mine = rawMine && (!rawMine.tableId || rawMine.tableId === id) ? rawMine : null;
+  // Not seated here yet → the join modal gates entry (pick a table & buy-in).
   const notSeated = statusQ.isSuccess && !mine;
 
   const hand = feed.hand ?? detail.data?.hand ?? null;
   const refetchKey = `${hand?.handId ?? ''}:${hand?.street ?? ''}:${hand?.toActSeat ?? ''}:${hand?.board?.length ?? 0}`;
+  // Hole cards are fixed for a whole hand, so key only by the hand id — keying by
+  // street/toActSeat churned the cache on every action and flashed the card backs.
+  // keepPreviousData holds the last cards on screen across any refetch.
   const myViewQ = useQuery({
-    queryKey: ['myview', mine?.agentId, refetchKey],
+    queryKey: ['myview', mine?.agentId, hand?.handId ?? ''],
     queryFn: () => api.agentView(id, mine!.agentId),
     enabled: !!mine?.agentId,
     refetchInterval: 1500,
+    placeholderData: keepPreviousData,
   });
   const myCards = myViewQ.data?.view?.isInHand ? myViewQ.data.view.holeCards : null;
   const seats: SeatDTO[] =
@@ -224,6 +252,22 @@ export function TablePage() {
     if (!(a.seat in lastActionBySeat) && a.action !== 'post-blind') lastActionBySeat[a.seat] = a.action;
   }
 
+  // ── Out of money: if your bank can't cover a hand, prompt a re-buy or exit. ──
+  const bankroll = statusQ.data?.bankroll ?? 0;
+  const bigBlind = detail.data?.table.bigBlind ?? 10;
+  const rebuyAmount = detail.data?.table.startingChips ?? 1000;
+  const broke = !!mine && statusQ.isSuccess && bankroll < bigBlind && !myViewQ.data?.view?.isInHand;
+  const [rebuying, setRebuying] = useState(false);
+  async function handleRebuy() {
+    setRebuying(true);
+    try {
+      await api.rebuy(clientId, rebuyAmount);
+      await qc.invalidateQueries({ queryKey: ['agentStatus', clientId] });
+    } finally {
+      setRebuying(false);
+    }
+  }
+
   async function leaveTable() {
     await api.stopAgent(clientId);
     await qc.invalidateQueries({ queryKey: ['agentStatus', clientId] });
@@ -253,15 +297,11 @@ export function TablePage() {
         </div>
       </div>
 
-      {/* ── The felt: a small, round oval under the overhead light ───── */}
+      {/* ── The felt: a small, round oval ────────────────────────────── */}
       <div
-        className="full-bleed spotlight-stage relative flex items-center justify-center px-4"
+        className="full-bleed relative flex items-center justify-center px-4"
         style={{ minHeight: 'clamp(560px, 80vh, 900px)' }}
       >
-        {/* Overhead spotlight onto the table */}
-        <div className="spotlight-lamp animate-flicker" />
-        <div className="spotlight-beam" />
-
         {/* The oval — a true ellipse (border-radius 50%) */}
         <div className="relative w-[min(1000px,78vw)]" style={{ aspectRatio: '2.35 / 1' }}>
           {/* Wooden rail */}
@@ -391,7 +431,7 @@ export function TablePage() {
                         </span>
                         <span
                           className="stat-num"
-                          style={{ color: r.delta > 0 ? '#46b187' : r.delta < 0 ? '#c8202f' : '#766c61' }}
+                          style={{ color: r.delta > 0 ? '#f2ecdd' : r.delta < 0 ? '#e2333f' : '#8a8278' }}
                         >
                           {r.delta > 0 ? '+' : ''}
                           {fmtChips(r.delta)}
@@ -404,15 +444,15 @@ export function TablePage() {
           )}
 
           <Panel title="Table log">
-            <div className="max-h-48 space-y-1.5 overflow-auto text-xs leading-relaxed">
+            <div className="max-h-64 space-y-2 overflow-auto text-xs leading-relaxed">
               {logs.length === 0 && <Empty>The hand will narrate here.</Empty>}
               {logs.map((l) => (
                 <div
                   key={l.id}
-                  className="text-bone-dim"
-                  style={{ color: l.level === 'warn' ? '#e7a23c' : l.level === 'error' ? '#c8202f' : undefined }}
+                  className="border-b border-hairline/60 pb-2 text-bone-dim last:border-0 last:pb-0"
+                  style={{ color: l.level === 'warn' ? '#c9c1b0' : l.level === 'error' ? '#e2333f' : undefined }}
                 >
-                  {cleanLog(l.message)}
+                  <LogLine message={cleanLog(l.message)} />
                 </div>
               ))}
             </div>
@@ -430,6 +470,15 @@ export function TablePage() {
 
       {/* Join gate — pick a table & buy-in before you can play. */}
       <JoinTableModal open={notSeated} onClose={() => navigate('/')} defaultTableId={id} />
+
+      {/* Out of money — re-buy to keep playing, or cash out and go home. */}
+      <OutOfMoneyModal
+        open={broke}
+        rebuyAmount={rebuyAmount}
+        busy={rebuying}
+        onRebuy={() => void handleRebuy()}
+        onLeave={() => void leaveTable()}
+      />
     </div>
   );
 }
@@ -437,17 +486,17 @@ export function TablePage() {
 function actionColor(a: string): string {
   switch (a) {
     case 'fold':
-      return '#86131d';
+      return '#8a8278'; // ash
     case 'check':
-      return '#b3a99c';
+      return '#c9c1b0'; // cream-dim
     case 'call':
-      return '#d8606b';
+      return '#d8cdb6'; // glow-dim
     case 'bet':
     case 'raise':
-      return '#1d8159';
+      return '#b5232e'; // rouge-dim
     case 'all-in':
-      return '#e3344b';
+      return '#e2333f'; // rouge
     default:
-      return '#f4efe7';
+      return '#f2ecdd'; // cream
   }
 }

@@ -49,9 +49,9 @@ export function ReceiptsPage() {
               onClick={() => setKind(k)}
               className="chip transition"
               style={{
-                color: k ? feeColor(k) : kind === '' ? '#38e0c8' : '#9aa0b6',
-                borderColor: kind === k ? (k ? `${feeColor(k)}aa` : '#38e0c8aa') : '#272c3e',
-                background: kind === k ? (k ? `${feeColor(k)}1a` : '#38e0c81a') : 'transparent',
+                color: k ? feeColor(k) : kind === '' ? '#f2ecdd' : '#8a8278',
+                borderColor: kind === k ? (k ? `${feeColor(k)}aa` : '#f2ecddaa') : '#3a2a30',
+                background: kind === k ? (k ? `${feeColor(k)}1a` : '#f2ecdd1a') : 'transparent',
               }}
             >
               {k ? k.replace('-', ' ') : 'all'}
