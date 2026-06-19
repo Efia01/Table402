@@ -109,7 +109,11 @@ export class SimulatedProvider implements MppProvider {
 
   private adjust(address: string, currency: string, delta: number): void {
     const k = this.key(address, currency);
-    this.balances.set(k, (this.balances.get(k) ?? 0) + delta);
+    const next = (this.balances.get(k) ?? 0) + delta;
+    if (next < 0) {
+      throw new MppError('payment-insufficient', 402, `Insufficient ${currency} balance for ${address}`);
+    }
+    this.balances.set(k, next);
   }
 
   credit(address: string, currency: string, amount: number, reference = 'faucet'): void {

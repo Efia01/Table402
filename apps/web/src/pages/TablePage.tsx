@@ -49,12 +49,12 @@ function SeatPod({
   blind?: 'SB' | 'BB' | null;
   lastAction?: string | null;
 }) {
-  const empty = !seat.agentId;
-  const folded = seat.status === 'folded';
-  const tone = isYou ? '#e3344b' : archetypeColor(seat.archetype);
+  const empty = !seat || !seat.agentId;
+  const folded = seat?.status === 'folded';
+  const tone = isYou ? '#e3344b' : archetypeColor(seat?.archetype);
   // You always see your own hand face-up; everyone else is face-down.
   const cards: (string | null)[] = isYou ? (myCards ?? [null, null]) : [null, null];
-  const initial = (seat.agentName ?? '?').trim().charAt(0).toUpperCase() || '?';
+  const initial = (seat?.agentName ?? '?').trim().charAt(0).toUpperCase() || '?';
 
   if (empty) {
     return (
@@ -194,10 +194,10 @@ export function TablePage() {
   const myCards = myViewQ.data?.view?.isInHand ? myViewQ.data.view.holeCards : null;
   const seats: SeatDTO[] =
     hand?.seats && hand.seats.length
-      ? Array.from({ length: detail.data?.table.maxSeats ?? 6 }, (_, i) => {
+      ? Array.from({ length: detail.data?.table?.maxSeats ?? 6 }, (_, i) => {
           const s = hand.seats.find((x) => x.index === i);
           return (
-            s ?? (detail.data?.seats.find((x) => x.index === i) as SeatDTO) ?? ({ index: i, agentId: null } as SeatDTO)
+            s ?? (detail.data?.seats?.find((x) => x.index === i) as SeatDTO) ?? ({ index: i, agentId: null } as SeatDTO)
           );
         })
       : (detail.data?.seats ?? []);
@@ -263,7 +263,7 @@ export function TablePage() {
         <div className="flex items-baseline gap-2.5">
           <span className="font-mono text-[10px] uppercase tracking-widest3 text-bone-faint">Maison de Jeu</span>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-bone">
-            {detail.data?.table.name ?? 'Table'}
+            {detail.data?.table?.name ?? 'Table'}
           </h1>
         </div>
         <div className="flex items-center gap-2.5">
@@ -313,7 +313,7 @@ export function TablePage() {
           {/* Center watermark */}
           <div className="pointer-events-none absolute left-1/2 top-[22%] -translate-x-1/2 -translate-y-1/2 text-center">
             <div className="script text-3xl text-bone/25 sm:text-4xl">
-              {detail.data?.table.name ?? 'Table 402'}
+              {detail.data?.table?.name ?? 'Table 402'}
             </div>
             <div className="mt-1 font-mono text-[9px] uppercase tracking-widest3 text-bone/20">Maison de Jeu</div>
           </div>
@@ -407,7 +407,22 @@ export function TablePage() {
 
         <div className="space-y-5">
           {last && last.results.length > 0 && (
-            <Panel title="Last hand">
+            <Panel
+              title="Last hand"
+              right={
+                last.winners.length > 1 ? (
+                  <span className="chip border-crimson-bright/50 text-crimson-bright">
+                    {last.split && last.potCount > 1
+                      ? 'split + side pots'
+                      : last.split
+                        ? `split pot · ${last.winners.length} ways`
+                        : 'side pots'}
+                  </span>
+                ) : !last.showdown ? (
+                  <span className="chip border-hairline text-bone-faint">won uncontested</span>
+                ) : null
+              }
+            >
               {last.board.length > 0 && (
                 <div className="mb-3 flex items-center gap-2.5">
                   <span className="label">Board</span>

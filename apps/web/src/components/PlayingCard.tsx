@@ -1,14 +1,22 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { CenterArt, CornerSuit, suitColor, type Suit } from './cardArt';
 
 /**
- * Drop your own card art into `apps/web/public/cards/` named by code
- * (`As.png`, `Kh.png`, `Td.png`, … and `back.png`), then flip this to `true`.
- * Until then, the elegant built-in cards below are used.
+ * The deck is the hand-designed PNG art in `apps/web/public/cards/`, rendered
+ * verbatim. Filenames: `<rank><suit>.png` — rank ∈ A 2 3 4 5 6 7 8 9 10 J Q K,
+ * suit ∈ c d h s (lowercase) — e.g. `As.png`, `10h.png`, `2c.png`, plus `back.png`.
+ * If a file is missing it falls back to the built-in vector card for that card.
  */
-const CARD_IMAGES_ENABLED = false;
+const CARD_IMAGES_ENABLED = true;
 const CARD_EXT = 'png';
-const cardImageUrl = (code: string) => `/cards/${code}.${CARD_EXT}`;
+function cardImageUrl(code: string): string {
+  if (code === 'back') return `/cards/back.${CARD_EXT}`;
+  const suit = code.slice(-1).toLowerCase();
+  let rank = code.slice(0, -1).toUpperCase();
+  if (rank === 'T') rank = '10'; // app uses 'T' for ten; files use natural "10"
+  return `/cards/${rank}${suit}.${CARD_EXT}`;
+}
 
 // Tall cards with the generous, rounded "maison" corner (radius ≈ 0.21·width).
 const SIZES = {
@@ -19,21 +27,11 @@ const SIZES = {
 };
 export type CardSize = keyof typeof SIZES;
 
-const SUIT_GLYPH: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
-
-// Suit pips must render in a font that actually has them. Bodoni (font-display)
-// does not cover ♠♥♦♣, so force a safe symbol/system stack for the glyphs.
-const SUIT_FONT =
-  '"Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols2", "Arial Unicode MS", system-ui, sans-serif';
-
-function suitColor(suit: string): string {
-  return suit === 'h' || suit === 'd' ? '#c8202f' : '#16100f';
-}
-
-// The maison card back — deep maroon with the overlapping TABLE motif and the
-// 40·2 mark, echoing the brand card.
+// The card back — a cream-bordered card over a deep-red interior with the
+// overlapping TABLE motif and the white 402 mark.
 function CardBack({ s }: { s: (typeof SIZES)[CardSize] }) {
   const big = s.suitBig;
+  const showWordmark = s.w >= 48;
   return (
     <div
       className="relative overflow-hidden"
@@ -41,33 +39,36 @@ function CardBack({ s }: { s: (typeof SIZES)[CardSize] }) {
         width: s.w,
         height: s.h,
         borderRadius: s.radius,
-        background: 'radial-gradient(130% 130% at 50% -8%, #5e1119 0%, #4e0e13 46%, #340a0e 100%)',
-        boxShadow:
-          '0 6px 18px -7px rgba(0,0,0,0.75), inset 0 0 0 1px rgba(0,0,0,0.55)',
+        background: 'linear-gradient(160deg, #f3ead4 0%, #e7dcc1 100%)',
+        boxShadow: '0 6px 18px -7px rgba(0,0,0,0.75), inset 0 0 0 1px rgba(20,12,10,0.18)',
       }}
     >
-      {/* Inset hairline frame in a lighter maroon. */}
+      {/* Deep-red interior, inset within the cream frame. */}
       <div
-        className="absolute"
+        className="absolute overflow-hidden"
         style={{
-          inset: Math.max(2, s.w * 0.07),
-          borderRadius: s.radius - 3,
-          border: '1px solid rgba(216,96,107,0.30)',
+          inset: Math.max(2.5, s.w * 0.08),
+          borderRadius: Math.max(2, s.radius - 3),
+          background: 'radial-gradient(125% 120% at 32% 16%, #80141e 0%, #581017 46%, #380a0e 100%)',
+          boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.45)',
         }}
-      />
-      {/* Faint overlapping TABLE watermark behind the mark. */}
-      <div
-        className="absolute inset-0 grid place-items-center font-display font-bold uppercase leading-none"
-        style={{ color: 'rgba(255,255,255,0.05)', fontSize: big * 0.95, letterSpacing: '-0.12em' }}
       >
-        TABLE
-      </div>
-      {/* The crisp 40·2 mark. */}
-      <div
-        className="absolute inset-0 grid place-items-center font-display font-semibold leading-none"
-        style={{ color: 'rgba(244,239,231,0.92)', fontSize: big * 0.5 }}
-      >
-        40<span style={{ fontSize: big * 0.32, transform: 'translateY(-0.12em)', display: 'inline-block', margin: '0 0.04em' }}>·</span>2
+        {/* Overlapping TABLE watermark (larger cards only). */}
+        {showWordmark && (
+          <div
+            className="absolute inset-0 grid place-items-center font-display font-bold uppercase leading-none"
+            style={{ color: 'rgba(0,0,0,0.36)', fontSize: big * 1.18, letterSpacing: '-0.16em' }}
+          >
+            TABLE
+          </div>
+        )}
+        {/* The 402 mark. */}
+        <div
+          className="absolute inset-0 grid place-items-center font-display leading-none"
+          style={{ color: '#f4efe7', fontSize: showWordmark ? big * 0.64 : big * 0.62, fontWeight: 500 }}
+        >
+          402
+        </div>
       </div>
     </div>
   );
@@ -75,52 +76,59 @@ function CardBack({ s }: { s: (typeof SIZES)[CardSize] }) {
 
 function CardFace({ card, s }: { card: string; s: (typeof SIZES)[CardSize] }) {
   const rank = card.slice(0, card.length - 1).replace('T', '10');
-  const suit = card.slice(-1).toLowerCase();
-  const glyph = SUIT_GLYPH[suit] ?? '♠';
+  const suit = card.slice(-1).toLowerCase() as Suit;
   const color = suitColor(suit);
+  const red = suit === 'h' || suit === 'd';
+  const line = red ? 'rgba(210,51,63,0.55)' : 'rgba(54,42,34,0.22)';
+  const figW = s.w * 0.66;
+
   const Corner = ({ flip }: { flip?: boolean }) => (
     <div
-      className="absolute flex flex-col items-center leading-[0.82]"
+      className="absolute flex flex-col items-center leading-[0.74]"
       style={{
         color,
         ...(flip
-          ? { right: '9%', bottom: '6%', transform: 'rotate(180deg)' }
-          : { left: '9%', top: '6%' }),
+          ? { right: '8%', bottom: '6%', transform: 'rotate(180deg)' }
+          : { left: '8%', top: '6%' }),
       }}
     >
       <span className="font-display font-bold" style={{ fontSize: s.rank }}>
         {rank}
       </span>
-      <span style={{ fontSize: s.suitSm, fontFamily: SUIT_FONT }}>{glyph}</span>
+      <span style={{ marginTop: s.rank * -0.04, lineHeight: 0 }}>
+        <CornerSuit suit={suit} color={color} size={s.suitSm} />
+      </span>
     </div>
   );
+
   return (
     <div
-      className="relative"
+      className="relative overflow-hidden"
       style={{
         width: s.w,
         height: s.h,
         borderRadius: s.radius,
-        background: 'linear-gradient(165deg, #ffffff 0%, #f6f2ea 100%)',
-        boxShadow: '0 6px 18px -7px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(20,12,10,0.10)',
+        background: 'linear-gradient(160deg, #f8f2e4 0%, #efe6d0 58%, #e7dcc2 100%)',
+        boxShadow: '0 6px 18px -7px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(20,12,10,0.12)',
       }}
     >
-      {/* Faint inner frame, in the spirit of the brand cards. */}
-      <div
-        className="pointer-events-none absolute"
-        style={{
-          inset: Math.max(2, s.w * 0.07),
-          borderRadius: s.radius - 3,
-          border: '1px solid rgba(20,12,10,0.07)',
-        }}
-      />
-      <Corner />
-      <span
-        className="absolute inset-0 grid place-items-center"
-        style={{ color, fontSize: s.suitBig, opacity: 0.96, fontFamily: SUIT_FONT }}
+      {/* Inner frame + the signature diagonal hairline. */}
+      <svg
+        viewBox="0 0 100 140"
+        preserveAspectRatio="none"
+        className="pointer-events-none absolute inset-0 h-full w-full"
+        aria-hidden
       >
-        {glyph}
-      </span>
+        <rect x="4.5" y="4.5" width="91" height="131" rx="9" ry="9" fill="none" stroke={line} strokeWidth="1.1" />
+        <line x1="20" y1="14" x2="88" y2="128" stroke={line} strokeWidth="0.7" opacity="0.55" />
+      </svg>
+
+      <Corner />
+      <div className="absolute inset-0 grid place-items-center">
+        <svg width={figW} height={figW} viewBox="0 0 200 200" aria-hidden>
+          <CenterArt rank={rank} suit={suit} color={color} />
+        </svg>
+      </div>
       <Corner flip />
     </div>
   );
@@ -139,31 +147,25 @@ export function PlayingCard({
   const [imgFailed, setImgFailed] = useState(false);
   const useImage = CARD_IMAGES_ENABLED && !imgFailed;
 
+  // Render the supplied PNG exactly as-is (contain, no clipping/recolouring),
+  // with only a soft shadow so it reads on the felt.
+  const imgStyle = {
+    width: s.w,
+    height: s.h,
+    objectFit: 'contain' as const,
+    filter: 'drop-shadow(0 5px 11px rgba(0,0,0,0.5))',
+  };
+
   let inner;
   if (!card) {
-    inner =
-      useImage ? (
-        <img
-          src={cardImageUrl('back')}
-          alt="card back"
-          width={s.w}
-          height={s.h}
-          style={{ borderRadius: s.radius }}
-          onError={() => setImgFailed(true)}
-        />
-      ) : (
-        <CardBack s={s} />
-      );
+    inner = useImage ? (
+      <img src={cardImageUrl('back')} alt="card back" style={imgStyle} onError={() => setImgFailed(true)} />
+    ) : (
+      <CardBack s={s} />
+    );
   } else {
     inner = useImage ? (
-      <img
-        src={cardImageUrl(card)}
-        alt={card}
-        width={s.w}
-        height={s.h}
-        style={{ borderRadius: s.radius }}
-        onError={() => setImgFailed(true)}
-      />
+      <img src={cardImageUrl(card)} alt={card} style={imgStyle} onError={() => setImgFailed(true)} />
     ) : (
       <CardFace card={card} s={s} />
     );

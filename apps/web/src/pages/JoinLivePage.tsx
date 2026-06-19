@@ -201,6 +201,19 @@ export function JoinLivePage() {
               </p>
             </div>
 
+            <div className="glass flex items-center justify-between px-5 py-4">
+              <div>
+                <div className="font-mono text-[10px] uppercase tracking-widest3 text-crimson-bright">MPP wallet</div>
+                <div className="mt-0.5 text-xs text-bone-dim">drains as you pay seat · hand · action fees</div>
+              </div>
+              <div className="text-right">
+                <div className="stat-num text-2xl text-bone tabular-nums">{fmtUsdNum(mySeatQ.data?.walletBalance ?? 0)}</div>
+                <div className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">
+                  {mySeatQ.data?.currency ?? 'simUSD'}
+                </div>
+              </div>
+            </div>
+
             {!seatedAndGone && seat.agentId && (
               <MobileActionPanel tableId={tableId} agentId={seat.agentId} />
             )}
@@ -318,6 +331,10 @@ function truncHash(hash: string): string {
 }
 
 function fmtUsd(atomic: string): string {
-  const n = Number(atomic) / 1_000_000;
-  return `$${n.toFixed(n < 0.01 ? 4 : 2)}`;
+  return fmtUsdNum(Number(atomic));
+}
+
+function fmtUsdNum(atomic: number): string {
+  const n = atomic / 1_000_000;
+  return `$${n.toFixed(n > 0 && n < 0.01 ? 4 : 2)}`;
 }

@@ -290,24 +290,35 @@ export class TableRuntime {
     return seat?.sessionId ?? null;
   }
 
-  /** Resolve a seat by agentId or DID — used to reclaim a seat after reload/back. */
+  /** Resolve a seat by agentId or DID — used to reclaim a seat after reload/back.
+   *  Also returns the seat's live simUSD wallet balance (drains as fees settle). */
   findSeat(key: { agentId?: string; did?: string }): {
     seated: boolean;
     seatIndex: number | null;
     agentId: string | null;
     name: string | null;
     sessionId: string | null;
+    address: string | null;
+    walletBalance: number;
+    currency: string;
   } {
     const seat = this.seats.find(
       (s) => s && ((key.agentId && s.agentId === key.agentId) || (key.did && s.did === key.did)),
     );
-    if (!seat) return { seated: false, seatIndex: null, agentId: null, name: null, sessionId: null };
+    const address = seat?.address ?? null;
+    const walletBalance = address ? this.ctx.balanceOf(address) : 0;
+    if (!seat) {
+      return { seated: false, seatIndex: null, agentId: null, name: null, sessionId: null, address, walletBalance, currency: this.cfg.currency };
+    }
     return {
       seated: true,
       seatIndex: seat.seatIndex,
       agentId: seat.agentId,
       name: seat.name,
       sessionId: seat.sessionId,
+      address,
+      walletBalance,
+      currency: this.cfg.currency,
     };
   }
 
@@ -819,12 +830,18 @@ export class TableRuntime {
     await this.ctx.snapshotBalances();
 
     this.handsCompleted += 1;
+    const pots = result.pots ?? [];
+    const split = pots.some((p) => p.winners.length > 1);
+    const showdown = (result.showdown ?? []).some((e) => !e.folded);
     this.ctx.hub.broadcast(this.cfg.id, {
       type: 'hand-complete',
       handId: hand.id,
       winners: winnersOut,
       board: cardsToStrings(state.board),
       results,
+      potCount: pots.length,
+      split,
+      showdown,
     });
     this.broadcastState();
     this.ctx.hub.broadcast(this.cfg.id, { type: 'graph', handId: hand.id });

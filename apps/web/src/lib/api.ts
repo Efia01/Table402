@@ -192,7 +192,16 @@ export const api = {
   setAutopilot: (clientId: string, on: boolean) =>
     post<{ ok: boolean; mine?: MineStatus }>('/agents/autopilot', { clientId, on }),
   seat: (tableId: string, key: { agentId?: string; did?: string }) =>
-    get<{ seated: boolean; seatIndex: number | null; agentId: string | null; name: string | null; sessionId: string | null }>(
+    get<{
+      seated: boolean;
+      seatIndex: number | null;
+      agentId: string | null;
+      name: string | null;
+      sessionId: string | null;
+      address: string | null;
+      walletBalance: number;
+      currency: string;
+    }>(
       `/tables/${tableId}/seat?${key.agentId ? `agentId=${encodeURIComponent(key.agentId)}` : ''}${key.did ? `did=${encodeURIComponent(key.did)}` : ''}`,
     ),
   leaveTable: (tableId: string, key: { agentId?: string; did?: string }) =>

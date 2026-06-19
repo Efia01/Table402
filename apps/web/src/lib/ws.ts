@@ -23,6 +23,9 @@ export interface HandResultBanner {
   winners: Array<{ seat: number; label: string; amount: number }>;
   board: string[];
   results: Array<{ seat: number; label: string; delta: number; bankrollAfter: number }>;
+  potCount: number;
+  split: boolean;
+  showdown: boolean;
 }
 
 export interface RetreatOutcome {
@@ -80,6 +83,9 @@ function reduce(f: TableFeed, msg: WsEvent): TableFeed {
           winners: msg.winners,
           board: msg.board,
           results: msg.results,
+          potCount: msg.potCount ?? 1,
+          split: msg.split ?? false,
+          showdown: msg.showdown ?? false,
         },
       };
     case 'graph':

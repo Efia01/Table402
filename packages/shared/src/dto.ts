@@ -189,6 +189,10 @@ export const WsEvent = z.discriminatedUnion('type', [
         bankrollAfter: z.number().int(),
       }),
     ),
+    /** Number of pots awarded (>1 ⇒ side pots), and whether any single pot was split (a tie). */
+    potCount: z.number().int().optional(),
+    split: z.boolean().optional(),
+    showdown: z.boolean().optional(),
   }),
   z.object({ type: z.literal('graph'), handId: z.string() }),
   z.object({ type: z.literal('table-idle') }),

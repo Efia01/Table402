@@ -9,6 +9,9 @@ export interface MySeat {
   agentId: string | null;
   name: string | null;
   sessionId: string | null;
+  address: string | null;
+  walletBalance: number;
+  currency: string;
 }
 
 export function useMySeat(tableId: string) {
