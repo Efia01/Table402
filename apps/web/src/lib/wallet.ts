@@ -1,4 +1,4 @@
-import { createWalletClient, custom, getAddress, http, type WalletClient } from 'viem';
+import { createWalletClient, custom, getAddress, http, type Account, type WalletClient } from 'viem';
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { CHAIN_ID } from '@table402/shared';
 
@@ -9,6 +9,8 @@ export interface WalletConnection {
   did: string;
   client: WalletClient;
   kind: WalletKind;
+  /** Present for local-key (burner) wallets — the signer viem needs to sign. */
+  account?: Account;
 }
 
 const BURNER_KEY = 'table402.burnerKey';
@@ -86,10 +88,12 @@ export function hasBurnerWallet(): boolean {
   }
 }
 
+const BURNER_RPC_URL = 'https://rpc.moderato.tempo.xyz';
+
 export function connectBurnerWallet(): WalletConnection {
   const account = privateKeyToAccount(loadBurnerKey());
-  const client = createWalletClient({ account, transport: http() });
-  return { address: account.address, did: addressToDid(account.address), client, kind: 'burner' };
+  const client = createWalletClient({ account, transport: http(BURNER_RPC_URL) });
+  return { address: account.address, did: addressToDid(account.address), client, kind: 'burner', account };
 }
 
 export function getBurnerWallet(): WalletConnection | null {

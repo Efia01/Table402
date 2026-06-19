@@ -1,4 +1,4 @@
-import type { WalletClient } from 'viem';
+import type { Account, WalletClient } from 'viem';
 
 function canonicalize(value: unknown): string {
   return JSON.stringify(sortValue(value));
@@ -83,6 +83,7 @@ export async function payAndJoin(opts: {
   client: WalletClient;
   address: `0x${string}`;
   did: string;
+  account?: Account;
   name?: string;
   buyIn?: number;
 }): Promise<PaidJoinResult> {
@@ -106,7 +107,10 @@ export async function payAndJoin(opts: {
   if (!challenge) return { ok: false, error: 'Could not parse the 402 seat-fee challenge.' };
 
   const message = chargeSigningMessage(challenge);
-  const signature = await opts.client.signMessage({ account: opts.address, message });
+  const signature =
+    opts.account && typeof opts.account.signMessage === 'function'
+      ? await opts.account.signMessage({ message })
+      : await opts.client.signMessage({ account: opts.account ?? opts.address, message });
 
   const credential = {
     challenge,

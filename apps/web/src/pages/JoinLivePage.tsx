@@ -51,6 +51,7 @@ export function JoinLivePage() {
         client: wallet.connection.client,
         address: wallet.connection.address,
         did: wallet.connection.did,
+        account: wallet.connection.account,
         name: trimmed || undefined,
       });
       if (!result.ok) {
