@@ -21,6 +21,11 @@ export type CardSize = keyof typeof SIZES;
 
 const SUIT_GLYPH: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
 
+// Suit pips must render in a font that actually has them. Bodoni (font-display)
+// does not cover ♠♥♦♣, so force a safe symbol/system stack for the glyphs.
+const SUIT_FONT =
+  '"Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols2", "Arial Unicode MS", system-ui, sans-serif';
+
 function suitColor(suit: string): string {
   return suit === 'h' || suit === 'd' ? '#c8202f' : '#16100f';
 }
@@ -86,7 +91,7 @@ function CardFace({ card, s }: { card: string; s: (typeof SIZES)[CardSize] }) {
       <span className="font-display font-bold" style={{ fontSize: s.rank }}>
         {rank}
       </span>
-      <span style={{ fontSize: s.suitSm }}>{glyph}</span>
+      <span style={{ fontSize: s.suitSm, fontFamily: SUIT_FONT }}>{glyph}</span>
     </div>
   );
   return (
@@ -111,8 +116,8 @@ function CardFace({ card, s }: { card: string; s: (typeof SIZES)[CardSize] }) {
       />
       <Corner />
       <span
-        className="absolute inset-0 grid place-items-center font-display"
-        style={{ color, fontSize: s.suitBig, opacity: 0.96 }}
+        className="absolute inset-0 grid place-items-center"
+        style={{ color, fontSize: s.suitBig, opacity: 0.96, fontFamily: SUIT_FONT }}
       >
         {glyph}
       </span>

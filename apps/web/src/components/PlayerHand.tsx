@@ -42,16 +42,17 @@ export function PlayerHand({
   // Reset the raise slider whenever the action context changes.
   useEffect(() => setRaiseTo(null), [refetchKey]);
 
+  const legal = v?.legal ?? { types: [] as string[], callAmount: 0, minRaiseTo: 0, maxRaiseTo: 0 };
   const inHand = !!v && v.isInHand;
   const isTurn = !!v && v.isTurn;
-  const isBet = !!v && v.legal.types.includes('bet');
-  const canRaise = !!v && (isBet || v.legal.types.includes('raise'));
-  const canCheck = !!v && v.legal.types.includes('check');
-  const canCall = !!v && v.legal.types.includes('call');
-  const canAllIn = !!v && v.legal.types.includes('all-in');
+  const isBet = legal.types.includes('bet');
+  const canRaise = isBet || legal.types.includes('raise');
+  const canCheck = legal.types.includes('check');
+  const canCall = legal.types.includes('call');
+  const canAllIn = legal.types.includes('all-in');
 
-  const lo = v?.legal.minRaiseTo ?? 0;
-  const hi = v?.legal.maxRaiseTo ?? 0;
+  const lo = legal.minRaiseTo ?? 0;
+  const hi = legal.maxRaiseTo ?? 0;
   const amount = clamp(raiseTo ?? lo, lo, hi);
   const active = isTurn && !act.isPending;
 
@@ -119,7 +120,7 @@ export function PlayerHand({
           disabled={!active || (!canCheck && !canCall)}
           onClick={() => act.mutate({ type: canCheck ? 'check' : 'call' })}
         >
-          {canCheck ? 'Check' : `Call ${fmtChips(v?.legal.callAmount ?? 0)}`}
+          {canCheck ? 'Check' : `Call ${fmtChips(legal.callAmount)}`}
         </button>
 
         <button
