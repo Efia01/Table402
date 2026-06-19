@@ -11,6 +11,7 @@ function clamp(n: number, lo: number, hi: number): number {
 export function MobileActionPanel({ tableId, agentId }: { tableId: string; agentId: string }) {
   const qc = useQueryClient();
   const [raiseTo, setRaiseTo] = useState<number | null>(null);
+  const [autopilot, setAutopilot] = useState(true);
 
   const viewQ = useQuery({
     queryKey: ['myview', agentId],
@@ -41,15 +42,36 @@ export function MobileActionPanel({ tableId, agentId }: { tableId: string; agent
   const amount = clamp(raiseTo ?? lo, lo, hi);
   const active = isTurn && !act.isPending;
 
+  useEffect(() => {
+    if (!autopilot || !active) return;
+    const callAmount = v?.legal.callAmount ?? 0;
+    const stack = v?.stack ?? 0;
+    const t = setTimeout(() => {
+      if (canCheck) act.mutate({ type: 'check' });
+      else if (canCall && callAmount <= stack * 0.25) act.mutate({ type: 'call' });
+      else act.mutate({ type: 'fold' });
+    }, 2500);
+    return () => clearTimeout(t);
+  }, [autopilot, active, refetchKey]);
+
   return (
     <div className="glass overflow-hidden">
       <div className="flex items-center justify-between gap-3 border-b border-hairline px-4 py-3">
         <span className="label">Your hand</span>
-        {inHand && v?.holeCards?.length ? (
-          <CardRow cards={v.holeCards} size="sm" />
-        ) : (
-          <span className="text-xs text-bone-faint">waiting for the deal…</span>
-        )}
+        <div className="flex items-center gap-3">
+          {inHand && v?.holeCards?.length ? (
+            <CardRow cards={v.holeCards} size="sm" />
+          ) : (
+            <span className="text-xs text-bone-faint">waiting…</span>
+          )}
+          <button
+            onClick={() => setAutopilot((on) => !on)}
+            className={`chip ${autopilot ? 'border-crimson-bright/60 text-crimson-bright' : 'border-hairline text-bone-faint'}`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${autopilot ? 'bg-crimson-bright' : 'bg-bone-faint'}`} />
+            auto {autopilot ? 'on' : 'off'}
+          </button>
+        </div>
       </div>
 
       {inHand && (
@@ -105,8 +127,12 @@ export function MobileActionPanel({ tableId, agentId }: { tableId: string; agent
         {!inHand
           ? 'Seated — waiting for the next hand to be dealt.'
           : isTurn
-            ? 'Your turn — act before the timer.'
-            : 'Waiting for your turn…'}
+            ? autopilot
+              ? 'Autopilot will act shortly — tap a button to decide yourself.'
+              : 'Your turn — act before the timer.'
+            : autopilot
+              ? 'Autopilot is playing your seat. Toggle it off to play manually.'
+              : 'Waiting for your turn…'}
         {act.isError && <span className="ml-2 text-crimson-soft">· action failed</span>}
       </div>
     </div>

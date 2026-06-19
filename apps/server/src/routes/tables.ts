@@ -43,6 +43,12 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
     return { view };
   });
 
+  // Reclaim lookup: is this identity (agentId or did) already holding a seat?
+  app.get('/tables/:id/seat', async (req) => {
+    const { agentId, did } = req.query as { agentId?: string; did?: string };
+    return ctx.table.findSeat({ agentId, did });
+  });
+
   // --- Join: 402 seat fee, then take a seat (+ optional session) ---
   app.post(
     '/tables/:id/join',
@@ -167,9 +173,13 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
   });
 
   app.post('/tables/:id/leave', async (req) => {
-    const body = (req.body ?? {}) as { agentId?: string };
-    if (!body.agentId) return { ok: false, error: 'agentId required' };
-    const result = await ctx.table.leave(body.agentId);
+    const body = (req.body ?? {}) as { agentId?: string; did?: string };
+    let agentId = body.agentId;
+    if (!agentId && body.did) {
+      agentId = ctx.table.findSeat({ did: body.did }).agentId ?? undefined;
+    }
+    if (!agentId) return { ok: false, error: 'agentId or did required' };
+    const result = await ctx.table.leave(agentId);
     return { ok: result.left, refunded: result.refunded };
   });
 

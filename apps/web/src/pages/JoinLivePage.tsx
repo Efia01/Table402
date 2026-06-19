@@ -6,6 +6,7 @@ import { hasBurnerWallet, hasInjectedWallet, shortAddress, type WalletConnection
 import { useTableFeed } from '../lib/ws';
 import { API_BASE } from '../lib/api';
 import { fundWallet, payAndJoin, type PaidJoinResult } from '../lib/mpp';
+import { useMySeat, useReleaseOnExit } from '../lib/useMySeat';
 import { fmtChips } from '../components/BankrollPanel';
 import { MobileActionPanel } from '../components/MobileActionPanel';
 import { Brand } from '../components/Layout';
@@ -26,6 +27,8 @@ export function JoinLivePage() {
   const [name, setName] = useState('');
   const attempted = useRef(false);
 
+  const mySeatQ = useMySeat(tableId);
+
   useEffect(() => {
     setName(localStorage.getItem(NAME_KEY) ?? '');
   }, []);
@@ -35,6 +38,15 @@ export function JoinLivePage() {
       wallet.connectBurner();
     }
   }, [wallet]);
+
+  useEffect(() => {
+    const s = mySeatQ.data;
+    if (phase === 'connect' && !attempted.current && s?.seated && s.agentId) {
+      attempted.current = true;
+      setSeat({ ok: true, seatIndex: s.seatIndex ?? undefined, agentId: s.agentId, did: wallet.did ?? undefined });
+      setPhase('seated');
+    }
+  }, [mySeatQ.data, phase, wallet.did]);
 
   const join = useCallback(
     async (connection: WalletConnection) => {
@@ -87,6 +99,8 @@ export function JoinLivePage() {
 
   const seatedAndGone =
     phase === 'seated' && feed.retreat && feed.retreat.agentId === seat?.agentId && feed.retreat.mode === 'retreat';
+
+  useReleaseOnExit(tableId, wallet.did, phase === 'seated' && !seatedAndGone);
 
   return (
     <div className="mx-auto flex min-h-[100dvh] w-full max-w-md flex-col px-5 py-6">

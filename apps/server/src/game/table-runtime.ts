@@ -290,6 +290,27 @@ export class TableRuntime {
     return seat?.sessionId ?? null;
   }
 
+  /** Resolve a seat by agentId or DID — used to reclaim a seat after reload/back. */
+  findSeat(key: { agentId?: string; did?: string }): {
+    seated: boolean;
+    seatIndex: number | null;
+    agentId: string | null;
+    name: string | null;
+    sessionId: string | null;
+  } {
+    const seat = this.seats.find(
+      (s) => s && ((key.agentId && s.agentId === key.agentId) || (key.did && s.did === key.did)),
+    );
+    if (!seat) return { seated: false, seatIndex: null, agentId: null, name: null, sessionId: null };
+    return {
+      seated: true,
+      seatIndex: seat.seatIndex,
+      agentId: seat.agentId,
+      name: seat.name,
+      sessionId: seat.sessionId,
+    };
+  }
+
   /** Close an agent's session (refunding unspent escrow) and free its seat. */
   async leave(agentId: string): Promise<{ left: boolean; refunded?: number }> {
     const index = this.seats.findIndex((s) => s?.agentId === agentId);

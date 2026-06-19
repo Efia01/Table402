@@ -37,7 +37,14 @@ export function registerPlayWebSocket(
     async function dispatch(cmd: WsCommand): Promise<void> {
       try {
         if (cmd.type === 'retreat') {
-          const result = await controller.retreat(cmd.clientId);
+          let result = await controller.retreat(cmd.clientId);
+          if (!result) {
+            const seat = ctx.table.findSeat({ did: cmd.clientId, agentId: cmd.clientId });
+            if (seat.seated && seat.agentId) {
+              const left = await ctx.table.leave(seat.agentId);
+              result = { agentId: seat.agentId, refunded: left.refunded ?? 0 };
+            }
+          }
           if (!result) {
             send(socket, { type: 'retreat-error', clientId: cmd.clientId, message: 'no active agent for this client' });
             return;
