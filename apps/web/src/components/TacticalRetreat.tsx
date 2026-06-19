@@ -1,19 +1,27 @@
-import { useState } from 'react';
-import type { MineStatus } from '../lib/api';
+import { useEffect, useState } from 'react';
+import { api, type MineStatus } from '../lib/api';
 
 export function TacticalRetreat({
   mine,
+  clientId,
   connected,
   onSitOut,
   onRetreat,
+  onResume,
 }: {
   mine: MineStatus;
+  clientId: string;
   connected: boolean;
   onSitOut: () => boolean;
   onRetreat: () => boolean;
+  onResume: () => void;
 }) {
-  const [pending, setPending] = useState<'sit-out' | 'retreat' | null>(null);
+  const [pending, setPending] = useState<'sit-out' | 'retreat' | 'resume' | null>(null);
   const sittingOut = !mine.autopilot;
+
+  useEffect(() => {
+    if (pending !== 'retreat') setPending(null);
+  }, [mine.autopilot]);
 
   function handleSitOut() {
     if (pending) return;
@@ -23,6 +31,14 @@ export function TacticalRetreat({
   function handleRetreat() {
     if (pending) return;
     if (onRetreat()) setPending('retreat');
+  }
+
+  async function handleResume() {
+    if (pending) return;
+    setPending('resume');
+    await api.setAutopilot(clientId, true).catch(() => undefined);
+    onResume();
+    setPending(null);
   }
 
   return (
@@ -40,13 +56,23 @@ export function TacticalRetreat({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2.5">
-        <button
-          onClick={handleSitOut}
-          disabled={!connected || sittingOut || pending !== null}
-          className="btn disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {pending === 'sit-out' ? 'Sitting out…' : 'Sit out'}
-        </button>
+        {sittingOut ? (
+          <button
+            onClick={() => void handleResume()}
+            disabled={pending !== null}
+            className="btn disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pending === 'resume' ? 'Sitting back in…' : 'Sit back in'}
+          </button>
+        ) : (
+          <button
+            onClick={handleSitOut}
+            disabled={!connected || pending !== null}
+            className="btn disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {pending === 'sit-out' ? 'Sitting out…' : 'Sit out'}
+          </button>
+        )}
         <button
           onClick={handleRetreat}
           disabled={!connected || pending !== null}

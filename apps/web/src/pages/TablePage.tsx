@@ -11,6 +11,7 @@ import { PlayerHand } from '../components/PlayerHand';
 import { BankrollPanel, fmtChips } from '../components/BankrollPanel';
 import { JoinTableModal } from '../components/JoinTableModal';
 import { TacticalRetreat } from '../components/TacticalRetreat';
+import { JoinQR } from '../components/JoinQR';
 import { useClientId } from '../lib/clientId';
 import { Panel, Empty } from '../components/primitives';
 
@@ -370,9 +371,11 @@ export function TablePage() {
       {mine && (
         <TacticalRetreat
           mine={mine}
+          clientId={clientId}
           connected={feed.connected}
           onSitOut={sitOut}
           onRetreat={retreat}
+          onResume={() => void qc.invalidateQueries({ queryKey: ['agentStatus', clientId] })}
         />
       )}
       <div className="grid gap-5 lg:grid-cols-3">
@@ -450,6 +453,8 @@ export function TablePage() {
               ))}
             </div>
           </Panel>
+
+          <JoinQR tableId={id} />
         </div>
       </div>
 

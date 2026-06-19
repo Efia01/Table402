@@ -6,6 +6,7 @@ import './index.css';
 import { WalletProvider } from './lib/WalletProvider';
 import { Layout } from './components/Layout';
 import { LandingPage } from './pages/LandingPage';
+import { JoinLivePage } from './pages/JoinLivePage';
 import { LobbyPage } from './pages/LobbyPage';
 import { TablePage } from './pages/TablePage';
 import { HandReplayPage } from './pages/HandReplayPage';
@@ -29,6 +30,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <Routes>
           {/* Landing stands alone — no chrome, edge to edge. */}
           <Route path="/" element={<LandingPage />} />
+          <Route path="/join-live" element={<JoinLivePage />} />
           <Route element={<Layout />}>
             <Route path="/lobby" element={<LobbyPage />} />
             <Route path="/table/:id" element={<TablePage />} />
