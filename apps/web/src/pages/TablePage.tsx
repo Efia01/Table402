@@ -276,8 +276,10 @@ export function TablePage() {
 
   return (
     <div className="space-y-5">
+      {/* Viewport-fit play area — every seat + the action bar visible without scrolling */}
+      <div className="flex flex-col" style={{ height: 'calc(100vh - 7rem)', minHeight: 460 }}>
       {/* Slim toolbar — table name + hand-review actions */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <div className="flex items-baseline gap-2.5">
           <span className="font-mono text-[10px] uppercase tracking-widest3 text-bone-faint">Maison de Jeu</span>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-bone">
@@ -297,13 +299,11 @@ export function TablePage() {
         </div>
       </div>
 
-      {/* ── The felt: a small, round oval ────────────────────────────── */}
-      <div
-        className="full-bleed relative flex items-center justify-center px-4"
-        style={{ minHeight: 'clamp(560px, 80vh, 900px)' }}
-      >
-        {/* The oval — a true ellipse (border-radius 50%) */}
-        <div className="relative w-[min(1000px,78vw)]" style={{ aspectRatio: '2.35 / 1' }}>
+      {/* ── The felt: a small round oval, filling the remaining height ── */}
+      <div className="full-bleed relative flex min-h-0 flex-1 items-center justify-center px-4">
+        {/* The oval — sized by HEIGHT so it (and every seat) always fits above
+            the action bar, on any screen, with no scrolling. */}
+        <div className="relative max-w-[94vw]" style={{ height: 'min(40vh, 430px)', aspectRatio: '2.35 / 1' }}>
           {/* Wooden rail */}
           <div
             className="absolute inset-0"
@@ -369,12 +369,14 @@ export function TablePage() {
         </div>
       </div>
 
-      {/* ── Your action bar — pinned beneath the felt ────────────────── */}
+      {/* ── Your action bar — sits at the bottom of the play area ────── */}
       {mine && (
-        <div className="sticky bottom-0 z-30">
+        <div className="shrink-0">
           <PlayerHand tableId={id} mine={mine} refetchKey={refetchKey} pot={hand?.pot ?? 0} />
         </div>
       )}
+      </div>
+      {/* ── end viewport-fit play area ── */}
 
       {/* ── Bankroll + action flow + outcomes, underneath the table ──── */}
       {mine && (

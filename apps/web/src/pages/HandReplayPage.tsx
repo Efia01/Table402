@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../lib/api';
 import { CardRow } from '../components/PlayingCard';
@@ -29,6 +29,7 @@ interface History {
 
 export function HandReplayPage() {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const clientId = useClientId();
 
   // Selector source: the hands this browser played since sitting down this session.
@@ -39,6 +40,18 @@ export function HandReplayPage() {
     () => [...(pnlQ.data?.log ?? [])].sort((a, b) => a.handNumber - b.handNumber),
     [pnlQ.data],
   );
+
+  // Compact hand navigator: keep the strip to a single scrollable row and keep
+  // the active hand centred as you step through the session.
+  const currentIdx = sessionHands.findIndex((h) => h.handId === id);
+  const activeChipRef = useRef<HTMLAnchorElement | null>(null);
+  const goToHand = (i: number) => {
+    const h = sessionHands[i];
+    if (h) navigate(`/hands/${h.handId}`);
+  };
+  useEffect(() => {
+    activeChipRef.current?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }, [id, sessionHands.length]);
 
   const handQ = useQuery({ queryKey: ['hand', id], queryFn: () => api.hand(id) });
   const resultsQ = useQuery({ queryKey: ['handResults', id], queryFn: () => api.handResults(id) });
@@ -87,30 +100,63 @@ export function HandReplayPage() {
         </Link>
       </div>
 
-      {/* Session hand selector */}
-      <div>
-        <div className="label mb-2">Hands this session</div>
+      {/* Session hand selector — compact single-row navigator */}
+      <div className="border border-hairline bg-noir-900/40">
+        <div className="flex items-center justify-between gap-3 border-b border-hairline px-3 py-2">
+          <span className="label">Hands this session</span>
+          {sessionHands.length > 0 && (
+            <span className="stat-num text-xs text-bone-dim">
+              {currentIdx >= 0 ? currentIdx + 1 : '–'} / {sessionHands.length}
+            </span>
+          )}
+        </div>
         {sessionHands.length ? (
-          <div className="flex flex-wrap gap-2">
-            {sessionHands.map((h) => {
-              const active = h.handId === id;
-              return (
-                <Link
-                  key={h.handId}
-                  to={`/hands/${h.handId}`}
-                  className={`rounded-[4px] border px-3.5 py-1.5 font-display text-sm transition ${
-                    active
-                      ? 'border-crimson/70 bg-crimson/[0.1] text-bone'
-                      : 'border-hairline text-bone-dim hover:border-bone-faint hover:text-bone'
-                  }`}
-                >
-                  Hand #{h.handNumber}
-                </Link>
-              );
-            })}
+          <div className="flex items-center gap-2 px-2 py-2">
+            <button
+              className="btn shrink-0"
+              disabled={currentIdx <= 0}
+              onClick={() => goToHand(currentIdx - 1)}
+              aria-label="Previous hand"
+            >
+              ‹
+            </button>
+            <div className="flex flex-1 gap-1.5 overflow-x-auto py-0.5">
+              {sessionHands.map((h) => {
+                const active = h.handId === id;
+                return (
+                  <Link
+                    key={h.handId}
+                    ref={active ? activeChipRef : undefined}
+                    to={`/hands/${h.handId}`}
+                    className={`shrink-0 whitespace-nowrap rounded-[4px] border px-3 py-1.5 font-display text-sm transition ${
+                      active
+                        ? 'border-crimson/70 bg-crimson/[0.1] text-bone'
+                        : 'border-hairline text-bone-dim hover:border-bone-faint hover:text-bone'
+                    }`}
+                  >
+                    #{h.handNumber}
+                  </Link>
+                );
+              })}
+            </div>
+            <button
+              className="btn shrink-0"
+              disabled={currentIdx < 0 || currentIdx >= sessionHands.length - 1}
+              onClick={() => goToHand(currentIdx + 1)}
+              aria-label="Next hand"
+            >
+              ›
+            </button>
+            <button
+              className="btn shrink-0"
+              disabled={currentIdx === sessionHands.length - 1}
+              onClick={() => goToHand(sessionHands.length - 1)}
+            >
+              Latest
+            </button>
           </div>
         ) : (
-          <div className="text-sm text-bone-faint">
+          <div className="px-3 py-3 text-sm text-bone-faint">
             No session hands recorded — currently viewing hand #{hand.number}.
           </div>
         )}
