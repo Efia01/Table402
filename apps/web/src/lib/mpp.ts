@@ -87,7 +87,7 @@ export async function payAndJoin(opts: {
   buyIn?: number;
 }): Promise<PaidJoinResult> {
   const url = `${opts.apiBase}/tables/${opts.tableId}/join`;
-  const bodyObj: Record<string, unknown> = {};
+  const bodyObj: Record<string, unknown> = { human: true };
   if (opts.name) bodyObj.name = opts.name;
   if (opts.buyIn) bodyObj.buyIn = opts.buyIn;
   const init: RequestInit = {

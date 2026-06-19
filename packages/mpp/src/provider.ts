@@ -13,6 +13,8 @@ export interface SettleChargeArgs {
 export interface SettleResult {
   reference: string;
   txHash: string;
+  /** Block-explorer URL for the settlement tx (on-chain providers only). */
+  explorerUrl?: string;
 }
 
 export interface OpenChannelArgs {
@@ -39,6 +41,7 @@ export interface LedgerEvent {
   reference: string;
   txHash: string;
   channelId?: string;
+  explorerUrl?: string;
 }
 
 /**

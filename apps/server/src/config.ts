@@ -21,6 +21,8 @@ export interface AppConfig {
   handIntervalMs: number;
   /** Per-turn deadline (ms) before the table auto-acts for a silent agent. */
   turnTimeoutMs: number;
+  /** Per-turn deadline (ms) for human-occupied seats before the table auto-acts. */
+  humanTurnTimeoutMs: number;
   /** How long the final board + winner lingers before the next hand. */
   showdownDelayMs: number;
   /** Minimum players the controller keeps seated (fills with house bots). */
@@ -29,6 +31,8 @@ export interface AppConfig {
   agentThinkMinMs: number;
   agentThinkMaxMs: number;
   anthropicApiKey: string | null;
+  /** Settlement backend: 'simulated' (default) or 'tempo-testnet' (real on-chain). */
+  mppMode: string;
 }
 
 export function loadConfig(): AppConfig {
@@ -41,10 +45,12 @@ export function loadConfig(): AppConfig {
     autoPlay: envStr('AUTO_PLAY', 'true') !== 'false',
     handIntervalMs: envNum('HAND_INTERVAL_MS', 3000),
     turnTimeoutMs: envNum('TURN_TIMEOUT_MS', 30_000),
+    humanTurnTimeoutMs: envNum('HUMAN_TURN_TIMEOUT_MS', 15_000),
     showdownDelayMs: envNum('SHOWDOWN_DELAY_MS', 2000),
     minPlayers: envNum('MIN_PLAYERS', 3),
     agentThinkMinMs: envNum('AGENT_THINK_MIN_MS', 1300),
     agentThinkMaxMs: envNum('AGENT_THINK_MAX_MS', 2800),
     anthropicApiKey: process.env.ANTHROPIC_API_KEY ?? null,
+    mppMode: envStr('MPP_MODE', 'simulated'),
   };
 }

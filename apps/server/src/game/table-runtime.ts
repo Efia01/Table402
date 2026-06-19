@@ -47,6 +47,8 @@ interface Seat {
   /** Optional player-chosen per-hand buy-in cap (chips). Defaults to the table cap. */
   requestedBuyIn?: number;
   sessionId: string | null;
+  /** True for client-signed human seats — gets a tighter idle-action deadline. */
+  human: boolean;
 }
 
 interface Participant {
@@ -59,6 +61,7 @@ interface Participant {
   did: string;
   buyIn: number;
   sessionId: string | null;
+  human: boolean;
 }
 
 interface CurrentHand {
@@ -198,6 +201,7 @@ export class TableRuntime {
     seatReceipt: MppReceipt;
     sessionAuth?: SessionAuthorization;
     requestedBuyIn?: number;
+    human?: boolean;
   }): Promise<{ seatIndex: number; sessionId: string | null }> {
     if (this.seats.some((s) => s?.agentId === input.agentId)) {
       throw Object.assign(new Error('agent already seated'), { statusCode: 409 });
@@ -244,6 +248,7 @@ export class TableRuntime {
       requestedBuyIn:
         input.requestedBuyIn && input.requestedBuyIn > 0 ? Math.floor(input.requestedBuyIn) : undefined,
       sessionId,
+      human: input.human ?? false,
     };
     this.seats[seatIndex] = seat;
 
@@ -446,6 +451,7 @@ export class TableRuntime {
         did: seat.did,
         buyIn: seat.buyIn,
         sessionId: seat.sessionId,
+        human: seat.human,
       }));
 
       const config: HandConfig = {
@@ -852,9 +858,13 @@ export class TableRuntime {
     this.clearTurnTimer();
     const hand = this.current;
     if (!hand || hand.state.toAct == null) return;
+    const participant = hand.participants.find((p) => p.position === hand.state.toAct);
+    const timeout = participant?.human
+      ? this.ctx.config.humanTurnTimeoutMs
+      : this.ctx.config.turnTimeoutMs;
     this.turnTimer = setTimeout(() => {
       void this.autoActCurrent();
-    }, this.ctx.config.turnTimeoutMs);
+    }, timeout);
   }
 
   private clearTurnTimer(): void {
@@ -876,7 +886,9 @@ export class TableRuntime {
       this.ctx.hub.broadcast(this.cfg.id, {
         type: 'log',
         level: 'warn',
-        message: `${participant.name} timed out — auto ${type}`,
+        message: participant.human
+          ? `${participant.name} idled out — auto ${type} (table keeps moving)`
+          : `${participant.name} timed out — auto ${type}`,
       });
     } catch {
       /* ignore */

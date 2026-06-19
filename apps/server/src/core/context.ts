@@ -1,4 +1,4 @@
-import { MppServer, SimulatedProvider, type MppReceipt } from '@table402/mpp';
+import { MppServer, MppxProvider, SimulatedProvider, type MppProvider, type MppReceipt } from '@table402/mpp';
 import {
   DEFAULT_TABLE,
   SIM_USD,
@@ -40,7 +40,7 @@ export interface RecordedPayment {
 
 /** Shared application state: the MPP stack, wallets, the live hub, and persistence. */
 export class AppContext {
-  readonly provider: SimulatedProvider;
+  readonly provider: MppProvider;
   readonly mpp: MppServer;
   readonly wallets: WalletRegistry;
   readonly hub: Hub;
@@ -49,7 +49,7 @@ export class AppContext {
 
   constructor(config: AppConfig) {
     this.config = config;
-    this.provider = new SimulatedProvider();
+    this.provider = config.mppMode === 'tempo-testnet' ? MppxProvider.fromEnv() : new SimulatedProvider();
     this.mpp = new MppServer({ secret: config.secret, provider: this.provider, realm: 'table402.local' });
     this.wallets = new WalletRegistry();
     this.hub = new Hub();
