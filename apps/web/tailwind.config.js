@@ -4,21 +4,21 @@ export default {
   theme: {
     extend: {
       colors: {
-        // ── New elegant poker palette ──────────────────────────────
-        // Soft reddish-black (never harsh #000).
-        noir: { DEFAULT: '#0e0809', 900: '#0a0506', 800: '#150d0f', 700: '#1d1316', 600: '#271a1d' },
-        // Warm off-white ("bone").
-        bone: { DEFAULT: '#ece3d6', dim: '#b3a99c', faint: '#766c61' },
-        // Rich cardinal poker red — the one bright highlight of the room.
-        crimson: { DEFAULT: '#c8202f', bright: '#e2334a', deep: '#86131d', dark: '#4e0e13', soft: '#d8606b' },
+        // ── Maison 402 palette — sampled from the locked swatches ──────
+        // Warm near-black + a violet-tinged charcoal for depth.
+        noir: { DEFAULT: '#160d0e', 900: '#0c0708', 800: '#1c1214', 700: '#241921', 600: '#2e2129' },
+        // Pure paper white + warm bone for elegant ivory text.
+        bone: { DEFAULT: '#f4efe7', dim: '#b3a99c', faint: '#7d7269' },
+        // The one bright accent (swatch #e3344b) over deep maison maroon.
+        crimson: { DEFAULT: '#c8202f', bright: '#e3344b', deep: '#86131d', dark: '#4e0e13', soft: '#d8606b' },
         // Pure highlight white + true ink, used liberally against the reddish-black.
         paper: { DEFAULT: '#ffffff', dim: '#f3f0ea' },
         coal: '#16100f',
         // Warm amber spotlight glow.
         ember: { DEFAULT: '#e7a23c', soft: '#f3cd8c' },
-        // Classic poker-felt green.
-        table: { DEFAULT: '#11593f', light: '#1a7355', dark: '#0a3a29', rail: '#241410' },
-        hairline: 'rgba(236,227,214,0.12)',
+        // Maison felt green (swatch #15694a).
+        table: { DEFAULT: '#15694a', light: '#1d8159', dark: '#0c3d2c', rail: '#3a2017' },
+        hairline: 'rgba(244,239,231,0.12)',
 
         // ── Legacy tokens (kept so non-redesigned pages still render) ──
         ink: { DEFAULT: '#0e0809', 900: '#0a0506', 800: '#150d0f', 700: '#1d1316', 600: '#271a1d' },
@@ -41,11 +41,14 @@ export default {
         neon: '#e2334a',
       },
       fontFamily: {
+        // Bodoni Moda → display headlines & numerals.
         display: ['"Bodoni Moda"', 'Didot', 'Georgia', 'Cambria', 'serif'],
-        sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'JetBrains Mono', 'monospace'],
+        // Inter Tight → actual paragraph / body copy.
+        sans: ['"Inter Tight"', 'Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+        // Space Mono → eyebrows, labels, stats, buttons (the "technical" voice).
+        mono: ['"Space Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
-      letterSpacing: { widest2: '0.32em' },
+      letterSpacing: { widest2: '0.32em', widest3: '0.45em' },
       // Edgy, elegant — sharp but not square. Pills (full) kept for dots only.
       borderRadius: {
         none: '0px',

@@ -12,37 +12,50 @@ import { JoinTableModal } from '../components/JoinTableModal';
 import { useClientId } from '../lib/clientId';
 import { Panel, Empty } from '../components/primitives';
 
-// Six seats arranged around the oval — pushed to the rail so the table
-// fills the screen from edge to edge.
+// Six seats ringed around the small oval — positions are relative to the
+// felt box; left/right/top/bottom pods sit just outside the rail.
 const SEAT_POS = [
-  { left: '15%', top: '83%' },
-  { left: '50%', top: '94%' },
-  { left: '85%', top: '83%' },
-  { left: '85%', top: '13%' },
-  { left: '50%', top: '4%' },
-  { left: '15%', top: '13%' },
+  { left: '6%', top: '72%' }, // lower-left
+  { left: '50%', top: '106%' }, // bottom-center
+  { left: '94%', top: '72%' }, // lower-right
+  { left: '94%', top: '20%' }, // upper-right
+  { left: '50%', top: '-9%' }, // top-center
+  { left: '6%', top: '20%' }, // upper-left
 ];
+
+function BlindBadge({ kind }: { kind: 'SB' | 'BB' }) {
+  return (
+    <span className="absolute -right-2.5 -top-2.5 grid h-5 w-5 place-items-center rounded-full border border-crimson-bright/70 bg-noir-900 font-mono text-[8px] font-bold tracking-tight text-crimson-bright shadow-panel">
+      {kind}
+    </span>
+  );
+}
 
 function SeatPod({
   seat,
   isTurn,
   myCards,
   isYou,
+  blind,
+  lastAction,
 }: {
   seat: SeatDTO;
   isTurn: boolean;
   myCards?: string[] | null;
   isYou?: boolean;
+  blind?: 'SB' | 'BB' | null;
+  lastAction?: string | null;
 }) {
   const empty = !seat.agentId;
   const folded = seat.status === 'folded';
-  const tone = isYou ? '#e7a23c' : archetypeColor(seat.archetype);
+  const tone = isYou ? '#e3344b' : archetypeColor(seat.archetype);
   // You always see your own hand face-up; everyone else is face-down.
   const cards: (string | null)[] = isYou ? (myCards ?? [null, null]) : [null, null];
+  const initial = (seat.agentName ?? '?').trim().charAt(0).toUpperCase() || '?';
 
   if (empty) {
     return (
-      <div className="grid w-24 place-items-center rounded-[3px] border border-dashed border-hairline bg-noir-900/50 py-3 text-[10px] uppercase tracking-widest2 text-bone-faint">
+      <div className="grid w-24 place-items-center rounded-[3px] border border-dashed border-hairline bg-noir-900/50 py-3 font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">
         open
       </div>
     );
@@ -50,62 +63,99 @@ function SeatPod({
 
   return (
     <motion.div
-      animate={isTurn ? { scale: [1, 1.045, 1] } : { scale: 1 }}
+      animate={isTurn ? { scale: [1, 1.04, 1] } : { scale: 1 }}
       transition={isTurn ? { repeat: Infinity, duration: 1.7, ease: 'easeInOut' } : {}}
-      className={`relative w-[8.5rem] rounded-2xl border px-3 py-2.5 text-center backdrop-blur-md transition-colors ${
-        isTurn
-          ? 'border-crimson shadow-glow'
-          : isYou
-            ? 'border-ember/55'
-            : 'border-hairline'
-      } ${folded ? 'opacity-40 grayscale' : ''}`}
-      style={{ background: 'rgba(14,8,9,0.86)' }}
+      className="relative"
     >
       {/* Hole cards lifted above the plate */}
-      <div className="mb-1.5 flex justify-center">
-        <CardRow cards={cards} size={isYou ? 'md' : 'sm'} />
+      <div
+        className={`absolute left-1/2 z-0 flex -translate-x-1/2 justify-center ${folded ? 'opacity-30 grayscale' : ''}`}
+        style={{ bottom: 'calc(100% - 14px)' }}
+      >
+        <CardRow cards={cards} size={isYou ? 'lg' : 'sm'} />
       </div>
 
-      <div className="flex items-center justify-center gap-1.5">
-        <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: tone }} />
-        <span className="truncate font-display text-[15px] font-semibold text-bone">{seat.agentName}</span>
-        {seat.isButton && (
-          <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-ember/25 text-[9px] font-bold text-ember">
+      {/* The name plate — a sharp maison box */}
+      <div
+        className={`relative z-10 flex w-[9.5rem] items-center gap-2.5 rounded-[3px] border px-3 py-2 backdrop-blur-md transition-colors ${
+          isTurn || isYou ? 'border-crimson-bright' : 'border-hairline'
+        } ${folded ? 'opacity-45 grayscale' : ''}`}
+        style={{
+          background: 'rgba(18,11,12,0.9)',
+          boxShadow: isTurn ? '0 0 26px -6px rgba(227,52,75,0.6)' : undefined,
+        }}
+      >
+        <span
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-full border font-display text-sm text-bone"
+          style={{ borderColor: tone, background: 'rgba(0,0,0,0.35)' }}
+        >
+          {initial}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-1.5">
+            <span className="truncate font-display text-[15px] font-semibold text-bone">{seat.agentName}</span>
+            {isYou && (
+              <span className="font-display text-[11px] italic text-bone-dim">· you</span>
+            )}
+          </div>
+          <div className="stat-num text-[12px] text-bone-dim">{fmtChips(seat.stack)}</div>
+        </div>
+
+        {/* Dealer button / blind badge */}
+        {seat.isButton ? (
+          <span className="absolute -right-2.5 -top-2.5 grid h-5 w-5 place-items-center rounded-full bg-paper font-mono text-[9px] font-bold text-noir-900 shadow-panel">
             D
           </span>
-        )}
+        ) : blind ? (
+          <BlindBadge kind={blind} />
+        ) : null}
       </div>
 
-      <div className="mt-0.5 flex items-center justify-center gap-1 text-[11px]">
-        <span className="stat-num text-bone-dim">{fmtChips(seat.stack)}</span>
-        {isYou && <span className="text-[9px] font-semibold uppercase tracking-widest2 text-ember">you</span>}
+      {/* Committed chips below the plate */}
+      <div className="absolute left-1/2 top-[calc(100%+7px)] -translate-x-1/2 whitespace-nowrap">
+        {folded ? (
+          <span className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">Fold</span>
+        ) : seat.committed > 0 ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-full border border-crimson-bright/60 bg-crimson" />
+            <span className="stat-num text-[11px] text-bone">{fmtChips(seat.committed)}</span>
+            {lastAction && (
+              <span className="font-mono text-[10px] uppercase tracking-widest2 text-crimson-bright">{lastAction}</span>
+            )}
+          </span>
+        ) : null}
       </div>
-      <div className="stat-num text-[9px] uppercase tracking-wide text-bone-faint">
-        bank {fmtChips(seat.bankroll ?? 0)}
-      </div>
-
-      {seat.committed > 0 && (
-        <div className="absolute -bottom-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-[3px] border border-ember/40 bg-noir px-2 py-0.5 text-[10px] text-ember shadow-ember">
-          <span className="h-1.5 w-1.5 rounded-full bg-ember" /> {fmtChips(seat.committed)}
-        </div>
-      )}
     </motion.div>
   );
 }
 
+// Undealt community cards show as face-down maison backs, matching the design.
 function CommunitySlot({ card, index }: { card: string | null; index: number }) {
-  if (card) return <PlayingCard card={card} size="xl" index={index} />;
-  return (
-    <div
-      className="rounded-[9px] border border-dashed"
-      style={{ width: 86, height: 120, borderColor: 'rgba(236,227,214,0.13)', background: 'rgba(0,0,0,0.14)' }}
-    />
-  );
+  return <PlayingCard card={card} size="xl" index={index} />;
 }
 
 // Keep the table log readable: drop the noisy MPP/system lines and strip the
 // technical parentheticals (session ids, fee notes) from the rest.
 const LOG_NOISE = /fee skipped|referee failed|commentary failed|escrow|could not open/i;
+function ReplayIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 3v5h5" />
+      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+    </svg>
+  );
+}
+
 function cleanLog(message: string): string {
   return message
     .replace(/\s*\([^)]*\)/g, '')
@@ -154,6 +204,26 @@ export function TablePage() {
   const last = feed.lastComplete;
   const logs = feed.logs.filter((l) => !LOG_NOISE.test(l.message));
 
+  // Derive the small/big-blind seats from the button, for the seat badges.
+  const occupied = seats
+    .filter((s) => s.agentId)
+    .map((s) => s.index)
+    .sort((a, b) => a - b);
+  const blinds: Record<number, 'SB' | 'BB'> = {};
+  if (hand && occupied.length >= 2) {
+    const bi = occupied.indexOf(hand.buttonSeat);
+    if (bi >= 0) {
+      const heads = occupied.length === 2;
+      blinds[occupied[(bi + (heads ? 0 : 1)) % occupied.length]] = 'SB';
+      blinds[occupied[(bi + (heads ? 1 : 2)) % occupied.length]] = 'BB';
+    }
+  }
+  // Latest non-blind action verb per seat (feed.actions is newest-first).
+  const lastActionBySeat: Record<number, string> = {};
+  for (const a of feed.actions) {
+    if (!(a.seat in lastActionBySeat) && a.action !== 'post-blind') lastActionBySeat[a.seat] = a.action;
+  }
+
   async function leaveTable() {
     await api.stopAgent(clientId);
     await qc.invalidateQueries({ queryKey: ['agentStatus', clientId] });
@@ -162,70 +232,84 @@ export function TablePage() {
 
   return (
     <div className="space-y-5">
-      {/* Header — only the table name */}
-      <h1 className="font-display text-3xl font-semibold tracking-tight text-bone sm:text-4xl">
-        {detail.data?.table.name ?? 'Table'}
-      </h1>
-
-      {/* Hand-review actions — sit right above the table, on the right */}
-      {last && (
-        <div className="flex items-center justify-end gap-2.5">
-          <Link to={`/graph/${last.handId}`} className="btn btn-primary">
-            Receipt graph →
-          </Link>
-          <Link to={`/hands/${last.handId}`} className="btn btn-primary">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M3 3v5h5" />
-              <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-            </svg>
-            Replay
-          </Link>
+      {/* Slim toolbar — table name + hand-review actions */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-baseline gap-2.5">
+          <span className="font-mono text-[10px] uppercase tracking-widest3 text-bone-faint">Maison de Jeu</span>
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-bone">
+            {detail.data?.table.name ?? 'Table'}
+          </h1>
         </div>
-      )}
+        <div className="flex items-center gap-2.5">
+          {last ? (
+            <Link to={`/hands/${last.handId}`} className="btn btn-primary">
+              <ReplayIcon /> Replay
+            </Link>
+          ) : (
+            <span className="btn btn-primary cursor-not-allowed opacity-40" title="Available after the first hand finishes">
+              <ReplayIcon /> Replay
+            </span>
+          )}
+        </div>
+      </div>
 
-      {/* ── The felt: full-bleed, edge to edge ───────────────────────── */}
-      <div className="full-bleed px-3 sm:px-6">
-        <div className="relative mx-auto h-[clamp(470px,72vh,780px)] w-full">
-          {/* Rail — a rectangle with smooth, equal rounded corners */}
+      {/* ── The felt: a small, round oval under the overhead light ───── */}
+      <div
+        className="full-bleed spotlight-stage relative flex items-center justify-center px-4"
+        style={{ minHeight: 'clamp(560px, 80vh, 900px)' }}
+      >
+        {/* Overhead spotlight onto the table */}
+        <div className="spotlight-lamp animate-flicker" />
+        <div className="spotlight-beam" />
+
+        {/* The oval — a true ellipse (border-radius 50%) */}
+        <div className="relative w-[min(1000px,78vw)]" style={{ aspectRatio: '2.35 / 1' }}>
+          {/* Wooden rail */}
           <div
-            className="absolute inset-0 rounded-[28px]"
+            className="absolute inset-0"
             style={{
-              background: 'linear-gradient(180deg, #2a1812 0%, #1a0f0b 100%)',
-              boxShadow: '0 40px 90px -40px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.12)',
+              borderRadius: '50%',
+              background: 'linear-gradient(180deg, #5a3624 0%, #3a2014 52%, #24130c 100%)',
+              boxShadow: '0 60px 120px -50px rgba(0,0,0,0.95), inset 0 2px 3px rgba(255,255,255,0.14)',
             }}
           />
           {/* Felt */}
           <div
-            className="felt absolute inset-[14px] rounded-[22px]"
-            style={{ boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.10), inset 0 0 130px rgba(0,0,0,0.6)' }}
+            className="felt absolute inset-[16px]"
+            style={{ borderRadius: '50%', boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08), inset 0 0 120px rgba(0,0,0,0.55)' }}
+          />
+          {/* Inner betting ring */}
+          <div
+            className="pointer-events-none absolute inset-[11%]"
+            style={{ borderRadius: '50%', border: '1px solid rgba(255,255,255,0.05)' }}
           />
 
-          {/* Center: community cards + pot */}
-          <div className="absolute left-1/2 top-[44%] -translate-x-1/2 -translate-y-1/2 text-center">
-            <div className="flex items-center justify-center" style={{ gap: 8 }}>
+          {/* Center watermark */}
+          <div className="pointer-events-none absolute left-1/2 top-[22%] -translate-x-1/2 -translate-y-1/2 text-center">
+            <div className="script text-3xl text-bone/25 sm:text-4xl">
+              {detail.data?.table.name ?? 'Table 402'}
+            </div>
+            <div className="mt-1 font-mono text-[9px] uppercase tracking-widest3 text-bone/20">Maison de Jeu</div>
+          </div>
+
+          {/* Pot */}
+          <div className="absolute left-1/2 top-[42%] -translate-x-1/2 -translate-y-1/2 text-center">
+            <div className="font-mono text-[10px] uppercase tracking-widest3 text-bone-dim">Le Pot</div>
+            <div className="mt-1 font-display text-4xl font-semibold text-bone sm:text-5xl">
+              {fmtChips(hand?.pot ?? 0)}
+            </div>
+          </div>
+
+          {/* Community cards */}
+          <div className="absolute left-1/2 top-[66%] -translate-x-1/2 -translate-y-1/2">
+            <div className="flex items-center justify-center" style={{ gap: 10 }}>
               {communitySlots.map((c, i) => (
                 <CommunitySlot key={`${c ?? 'slot'}-${i}`} card={c} index={i} />
               ))}
             </div>
-            <div className="mt-5 flex items-center justify-center">
-              <div className="inline-flex items-center gap-2 rounded-[3px] border border-ember/30 bg-noir-900/70 px-4 py-1.5 backdrop-blur">
-                <span className="text-[10px] uppercase tracking-widest2 text-bone-faint">Pot</span>
-                <span className="stat-num text-lg text-ember text-glow">{fmtChips(hand?.pot ?? 0)}</span>
-              </div>
-            </div>
           </div>
 
-          {/* Seats around the oval */}
+          {/* Seats ringed around the oval */}
           {seats.map((seat) => (
             <div
               key={seat.index}
@@ -237,21 +321,27 @@ export function TablePage() {
                 isTurn={hand?.toActSeat === seat.index}
                 isYou={mine?.seatIndex === seat.index}
                 myCards={mine?.seatIndex === seat.index ? myCards : null}
+                blind={blinds[seat.index] ?? null}
+                lastAction={lastActionBySeat[seat.index] ?? null}
               />
             </div>
           ))}
         </div>
       </div>
 
-      {/* ── Your controls ────────────────────────────────────────────── */}
+      {/* ── Your action bar — pinned beneath the felt ────────────────── */}
       {mine && (
-        <div className="grid gap-5 lg:grid-cols-2">
-          <PlayerHand tableId={id} mine={mine} refetchKey={refetchKey} />
-          <BankrollPanel mine={mine} tick={feed.lastComplete?.handId ?? ''} />
+        <div className="sticky bottom-0 z-30">
+          <PlayerHand tableId={id} mine={mine} refetchKey={refetchKey} pot={hand?.pot ?? 0} />
         </div>
       )}
 
-      {/* ── Action flow (kept) + outcomes, underneath the table ──────── */}
+      {/* ── Bankroll + action flow + outcomes, underneath the table ──── */}
+      {mine && (
+        <div className="pt-2">
+          <BankrollPanel mine={mine} tick={feed.lastComplete?.handId ?? ''} />
+        </div>
+      )}
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Panel title="Action flow" right={<span className="text-[11px] text-bone-faint">live</span>}>
@@ -296,7 +386,7 @@ export function TablePage() {
                     return (
                       <div key={r.seat} className="flex items-center justify-between text-sm">
                         <span className="flex items-center gap-1.5 truncate text-bone-dim">
-                          {won && <span className="text-ember">♔</span>}
+                          {won && <span className="text-crimson-bright">♔</span>}
                           {r.label}
                         </span>
                         <span
@@ -347,17 +437,17 @@ export function TablePage() {
 function actionColor(a: string): string {
   switch (a) {
     case 'fold':
-      return '#c8202f';
+      return '#86131d';
     case 'check':
       return '#b3a99c';
     case 'call':
-      return '#e7a23c';
+      return '#d8606b';
     case 'bet':
     case 'raise':
-      return '#46b187';
+      return '#1d8159';
     case 'all-in':
-      return '#e2334a';
+      return '#e3344b';
     default:
-      return '#ece3d6';
+      return '#f4efe7';
   }
 }

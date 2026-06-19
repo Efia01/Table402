@@ -13,16 +13,16 @@
   }
   body {
     @apply bg-noir font-sans text-bone antialiased;
-    /* Soft reddish-black — a warm vignette, never harsh black. */
-    background-color: #0e0809;
+    /* Maison near-black warmed by a deep maroon floor wash + corner shadow. */
+    background-color: #160d0e;
     background-image:
-      radial-gradient(120% 80% at 50% -10%, rgba(231, 162, 60, 0.05), transparent 55%),
-      radial-gradient(100% 100% at 50% 120%, rgba(134, 19, 29, 0.12), transparent 60%),
-      radial-gradient(140% 120% at 50% 50%, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+      radial-gradient(120% 80% at 50% -10%, rgba(78, 14, 19, 0.35), transparent 55%),
+      radial-gradient(100% 100% at 50% 120%, rgba(78, 14, 19, 0.28), transparent 62%),
+      radial-gradient(140% 120% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.6) 100%);
     background-attachment: fixed;
   }
   ::selection {
-    background: rgba(200, 32, 47, 0.32);
+    background: rgba(227, 52, 75, 0.34);
     color: #fff;
   }
   *::-webkit-scrollbar {
@@ -59,14 +59,20 @@
   }
 
   /* ── Type ───────────────────────────────────────────────── */
+  /* Eyebrows / labels — the Space Mono "technical" voice. */
   .label {
-    @apply font-sans text-[11px] uppercase tracking-widest2 text-bone-faint;
+    @apply font-mono text-[11px] uppercase tracking-widest2 text-bone-faint;
   }
+  /* Stats / numerals — Space Mono, tabular. */
   .stat-num {
     @apply font-mono tabular-nums;
   }
   .serif {
     @apply font-display;
+  }
+  /* A line of italic Bodoni, the maison's quiet decorative voice. */
+  .script {
+    @apply font-display italic;
   }
 
   /* Spotlight-lit headline: carved in white light, fading to cool shadow below. */
@@ -186,44 +192,65 @@
     z-index: 0;
   }
 
-  /* ── Poker felt ─────────────────────────────────────────── */
+  /* ── Poker felt — lit maison green ──────────────────────── */
   .felt {
     background:
-      radial-gradient(120% 90% at 50% 8%, rgba(231, 162, 60, 0.12), transparent 42%),
-      radial-gradient(ellipse 82% 78% at 50% 42%, #1a7355 0%, #11593f 44%, #0a3a29 100%);
+      radial-gradient(70% 60% at 50% 6%, rgba(255, 250, 244, 0.16), transparent 46%),
+      radial-gradient(ellipse 84% 80% at 50% 40%, #1d8159 0%, #15694a 44%, #0c3d2c 100%);
     box-shadow: var(--tw-shadow, 0 0 0 0 transparent);
   }
 
-  /* ── Buttons ────────────────────────────────────────────── */
+  /* ── Buttons — Space Mono technical voice ───────────────── */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-[3px] border border-hairline bg-noir-700/50 px-4 py-2 text-sm font-medium tracking-wide text-bone/90 transition;
+    @apply inline-flex items-center justify-center gap-2 rounded-[3px] border border-hairline bg-noir-700/50 px-4 py-2 font-mono text-[12px] uppercase tracking-[0.14em] text-bone/90 transition;
   }
   .btn:hover {
-    @apply border-crimson/50 text-bone;
-    box-shadow: 0 0 26px -8px rgba(200, 32, 47, 0.5);
+    @apply border-crimson-bright/60 text-bone;
+    box-shadow: 0 0 26px -8px rgba(227, 52, 75, 0.5);
   }
   .btn-primary {
-    @apply border-crimson/60 bg-crimson/[0.14] text-bone;
+    @apply border-crimson-bright/60 bg-crimson-bright/[0.14] text-bone;
   }
   .btn-primary:hover {
-    @apply bg-crimson/25;
+    @apply bg-crimson-bright/25;
   }
-  /* The big landing CTA — bold crimson, the red highlight of the room. */
+  /* The landing CTA — an outlined maison panel, Space Mono caps. */
   .btn-hero {
-    @apply inline-flex items-center gap-3 rounded-[4px] px-11 py-4 font-sans text-base font-semibold uppercase tracking-[0.22em] text-paper transition-all duration-300;
-    background: linear-gradient(180deg, #e2334a 0%, #c8202f 52%, #86131d 100%);
-    border: 1px solid rgba(255, 255, 255, 0.28);
+    @apply inline-flex items-center gap-4 rounded-[2px] px-12 py-4 font-mono text-[13px] uppercase tracking-[0.3em] text-bone transition-all duration-300;
+    background: linear-gradient(180deg, rgba(46, 11, 14, 0.55) 0%, rgba(22, 13, 14, 0.55) 100%);
+    border: 1px solid rgba(227, 52, 75, 0.4);
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.22) inset,
-      0 10px 34px -10px rgba(200, 32, 47, 0.7),
-      0 0 0 0 rgba(200, 32, 47, 0);
+      0 1px 0 rgba(255, 255, 255, 0.06) inset,
+      0 14px 40px -22px rgba(0, 0, 0, 0.9);
   }
   .btn-hero:hover {
     transform: translateY(-1px);
+    border-color: rgba(227, 52, 75, 0.85);
+    color: #ffffff;
     box-shadow:
-      0 1px 0 rgba(255, 255, 255, 0.28) inset,
-      0 14px 44px -10px rgba(226, 51, 74, 0.85),
-      0 0 60px -8px rgba(231, 162, 60, 0.4);
+      0 1px 0 rgba(255, 255, 255, 0.1) inset,
+      0 18px 50px -20px rgba(227, 52, 75, 0.6);
+  }
+
+  /* ── Maison structural pieces ───────────────────────────── */
+  /* The thin crimson frame that rings the whole page. */
+  .maison-frame {
+    pointer-events: none;
+    position: fixed;
+    inset: 10px;
+    border: 1px solid rgba(227, 52, 75, 0.32);
+    border-radius: 2px;
+    z-index: 30;
+    box-shadow: inset 0 0 70px -30px rgba(227, 52, 75, 0.25);
+  }
+  /* The roman-numeral edition tabs (I MAISON / II TERMINAL / III NOIR). */
+  .edition-tab {
+    @apply inline-flex items-center gap-2 rounded-[2px] border px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.22em] transition;
+  }
+  /* One segment of the bottom Fold / Call / Raise action bar. */
+  .act-seg {
+    @apply flex flex-1 items-center justify-center font-display text-xl italic transition-colors;
+    min-height: 76px;
   }
 
   /* ── Bits ───────────────────────────────────────────────── */
@@ -237,7 +264,7 @@
     text-shadow: 0 0 24px rgba(231, 162, 60, 0.3);
   }
   .corner-label {
-    @apply font-sans text-[10px] uppercase tracking-widest2 text-bone-faint;
+    @apply font-mono text-[10px] uppercase tracking-widest2 text-bone-faint;
   }
   /* Break out of a max-width container to span the full viewport width. */
   .full-bleed {

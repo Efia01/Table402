@@ -5,8 +5,8 @@ import { Panel, Empty } from './primitives';
 
 export function fmtChips(n: number): string {
   const sign = n < 0 ? '-' : '';
-  // Force en-US grouping so 1000 reads "$1,000", not a locale-ambiguous "$1.000".
-  return `${sign}$${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
+  // Force en-US grouping so 1000 reads "€1,000", not a locale-ambiguous "€1.000".
+  return `${sign}€${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
 }
 
 function Delta({ n }: { n: number }) {

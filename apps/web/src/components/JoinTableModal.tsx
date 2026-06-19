@@ -19,8 +19,8 @@ function tableSize(maxSeats: number): string {
 function Stat({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-widest2 text-bone-faint">{label}</span>
-      <span className={`stat-num text-sm ${accent ? 'text-ember' : 'text-bone'}`}>{value}</span>
+      <span className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">{label}</span>
+      <span className={`stat-num text-sm ${accent ? 'text-crimson-bright' : 'text-bone'}`}>{value}</span>
     </div>
   );
 }
@@ -130,16 +130,17 @@ export function JoinTableModal({
           {/* Header */}
           <div className="flex items-start justify-between gap-4 border-b border-hairline px-7 py-5">
             <div>
-              <h2 className="font-display text-2xl font-semibold tracking-tight text-bone">
+              <span className="font-mono text-[10px] uppercase tracking-widest3 text-crimson-bright">La Maison</span>
+              <h2 className="mt-1 font-display text-3xl font-semibold tracking-tight text-bone">
                 Take your seat
               </h2>
-              <p className="mt-0.5 text-sm text-bone-dim">
+              <p className="mt-1 text-sm text-bone-dim">
                 Choose a table and decide how much of your bank to bring.
               </p>
             </div>
-            <div className="rounded-md border border-hairline bg-noir-900/60 px-4 py-2 text-right">
-              <div className="text-[10px] uppercase tracking-widest2 text-bone-faint">Bank account</div>
-              <div className="stat-num text-xl text-ember text-glow">{fmtChips(bankroll)}</div>
+            <div className="rounded-[3px] border border-hairline bg-noir-900/60 px-4 py-2 text-right">
+              <div className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">Bank account</div>
+              <div className="stat-num text-xl text-bone">{fmtChips(bankroll)}</div>
             </div>
           </div>
 
@@ -152,7 +153,7 @@ export function JoinTableModal({
                 onChange={(e) => setName(e.target.value)}
                 maxLength={24}
                 placeholder="Anonymous"
-                className="mt-2 w-full rounded-md border border-hairline bg-noir-700/60 px-4 py-2.5 text-bone outline-none transition placeholder:text-bone-faint focus:border-crimson/60"
+                className="mt-2 w-full rounded-[3px] border border-hairline bg-noir-700/60 px-4 py-2.5 font-sans text-bone outline-none transition placeholder:text-bone-faint focus:border-crimson-bright/70"
               />
             </div>
 
@@ -172,9 +173,9 @@ export function JoinTableModal({
                     <button
                       key={t.id}
                       onClick={() => setSelectedId(t.id)}
-                      className={`flex w-full items-center justify-between gap-4 rounded-md border px-5 py-3.5 text-left transition ${
+                      className={`flex w-full items-center justify-between gap-4 rounded-[3px] border px-5 py-3.5 text-left transition ${
                         isSel
-                          ? 'border-crimson/70 bg-crimson/[0.08]'
+                          ? 'border-crimson-bright/70 bg-crimson-bright/[0.08]'
                           : 'border-hairline bg-noir-800/40 hover:border-bone-faint'
                       }`}
                     >
@@ -196,8 +197,8 @@ export function JoinTableModal({
                       <div className="flex shrink-0 items-center gap-6">
                         <Stat label="Seated" value={`${t.seatedCount}/${t.maxSeats}`} />
                         <span
-                          className={`grid h-5 w-5 place-items-center rounded-full border ${
-                            isSel ? 'border-crimson bg-crimson text-paper' : 'border-bone-faint text-transparent'
+                          className={`grid h-5 w-5 place-items-center rounded-full border text-[11px] ${
+                            isSel ? 'border-crimson-bright bg-crimson-bright text-paper' : 'border-bone-faint text-transparent'
                           }`}
                         >
                           ✓
@@ -229,7 +230,7 @@ export function JoinTableModal({
                   step={bounds.step}
                   value={buyIn}
                   onChange={(e) => setBuyIn(Number(e.target.value))}
-                  className="mt-3 h-1 w-full cursor-pointer appearance-none rounded-full bg-noir-600 accent-crimson"
+                  className="mt-3 h-1 w-full cursor-pointer appearance-none rounded-full bg-noir-600 accent-crimson-bright"
                 />
                 <div className="mt-1.5 flex justify-between text-[11px] text-bone-faint">
                   <span>min {fmtChips(bounds.min)}</span>

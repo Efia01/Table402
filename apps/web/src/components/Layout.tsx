@@ -8,8 +8,8 @@ const LINKS = [
 
 export function Brand() {
   return (
-    <span className="font-display text-xl font-semibold tracking-tight text-bone">
-      Table<span className="text-crimson">402</span>
+    <span className="font-mono text-lg font-bold uppercase tracking-[0.12em] text-bone">
+      Table<span className="text-crimson-bright">402</span>
     </span>
   );
 }
@@ -17,11 +17,15 @@ export function Brand() {
 export function Layout() {
   return (
     <div className="flex min-h-full flex-col">
-      <header className="sticky top-0 z-40 border-b border-hairline bg-noir/55 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3">
+      {/* The crimson maison frame ringing the page */}
+      <div className="maison-frame" />
+
+      <header className="sticky top-0 z-40 border-b border-hairline bg-noir/65 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-3">
           <NavLink to="/">
             <Brand />
           </NavLink>
+
           <nav className="flex items-center gap-1">
             {LINKS.map((l) => (
               <NavLink
@@ -29,8 +33,8 @@ export function Layout() {
                 to={l.to}
                 end={l.end}
                 className={({ isActive }) =>
-                  `rounded-[3px] px-3.5 py-1.5 text-[11px] uppercase tracking-widest2 transition ${
-                    isActive ? 'text-crimson' : 'text-bone-faint hover:text-bone'
+                  `rounded-[2px] px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest2 transition ${
+                    isActive ? 'text-crimson-bright' : 'text-bone-faint hover:text-bone'
                   }`
                 }
               >
@@ -46,7 +50,9 @@ export function Layout() {
       </main>
 
       <footer className="border-t border-hairline px-5 py-4 text-center">
-        <span className="corner-label">Table402 · testnet simulation · non-redeemable chips · no cash-out</span>
+        <span className="corner-label">
+          Maison Edition MMXXIV · Berlin Node · testnet simulation · non-redeemable chips · no cash-out
+        </span>
       </footer>
     </div>
   );

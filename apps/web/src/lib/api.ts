@@ -48,6 +48,8 @@ export interface AgentControlStatus {
   seated: number;
   /** Persistent bank account for this browser's player (default if never played). */
   bankroll: number;
+  /** Stable agent id for this browser — usable to list this session's hands. */
+  agentId: string;
 }
 
 export interface AgentViewDTO {

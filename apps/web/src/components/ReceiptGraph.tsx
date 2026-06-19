@@ -1,6 +1,4 @@
 import { useMemo } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
 import {
   Background,
   BackgroundVariant,
@@ -12,18 +10,19 @@ import {
   type Node,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import { useQuery } from '@tanstack/react-query';
 import type { GraphEdgeDTO } from '@table402/shared';
 import { api } from '../lib/api';
 import { FEE_COLOR, NODE_COLOR, feeColor, formatUsd } from '../lib/ui';
-import { FeeLegend, Panel } from '../components/primitives';
+import { FeeLegend } from './primitives';
 
 const KIND_ORDER = ['seat-fee', 'hand-fee', 'action-fee', 'service-fee'];
 
 function EntityNode({ data }: { data: { label: string; type: string; sub?: string } }) {
-  const color = NODE_COLOR[data.type] ?? '#9aa0b6';
+  const color = NODE_COLOR[data.type] ?? '#b3a99c';
   return (
     <div
-      className="rounded-xl border px-3 py-2 text-center"
+      className="rounded-[6px] border px-3 py-2 text-center"
       style={{ borderColor: `${color}66`, background: `${color}14`, minWidth: 150, minHeight: 64, boxShadow: `0 0 24px -10px ${color}` }}
     >
       {KIND_ORDER.map((k, i) => (
@@ -35,8 +34,8 @@ function EntityNode({ data }: { data: { label: string; type: string; sub?: strin
       <div className="label" style={{ color }}>
         {data.type}
       </div>
-      <div className="text-sm font-semibold text-text">{data.label}</div>
-      {data.sub && <div className="stat-num mt-0.5 text-[11px] text-mute">{data.sub}</div>}
+      <div className="text-sm font-semibold text-bone">{data.label}</div>
+      {data.sub && <div className="stat-num mt-0.5 text-[11px] text-bone-dim">{data.sub}</div>}
     </div>
   );
 }
@@ -52,11 +51,9 @@ interface GroupedEdge {
   items: GraphEdgeDTO[];
 }
 
-export function GraphPage() {
-  const { id = '' } = useParams();
-  const graphQ = useQuery({ queryKey: ['graph', id], queryFn: () => api.graph(id) });
-  const handQ = useQuery({ queryKey: ['hand', id], queryFn: () => api.hand(id) });
-
+/** The per-hand receipt graph: who paid whom, for what, and what it unlocked. */
+export function ReceiptGraph({ handId }: { handId: string }) {
+  const graphQ = useQuery({ queryKey: ['graph', handId], queryFn: () => api.graph(handId) });
   const graph = graphQ.data?.graph;
 
   const { nodes, edges } = useMemo(() => {
@@ -97,7 +94,7 @@ export function GraphPage() {
       animated: true,
       label: g.count > 1 ? `${formatUsd(g.amount)} ×${g.count}` : formatUsd(g.amount),
       labelStyle: { fill: feeColor(g.kind), fontSize: 11, fontFamily: 'ui-monospace' },
-      labelBgStyle: { fill: '#0f111a', fillOpacity: 0.85 },
+      labelBgStyle: { fill: '#0e0809', fillOpacity: 0.9 },
       labelBgPadding: [4, 2] as [number, number],
       style: { stroke: feeColor(g.kind), strokeWidth: 2 },
       markerEnd: { type: MarkerType.ArrowClosed, color: feeColor(g.kind) },
@@ -106,34 +103,20 @@ export function GraphPage() {
   }, [graph]);
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-2xl font-semibold tracking-tight">Receipt graph</h1>
-        <div className="flex items-center gap-2">
-          <Link to={`/hands/${id}`} className="btn">
-            Replay hand
-          </Link>
-          {handQ.data?.hand && (
-            <Link to={`/table/${handQ.data.hand.tableId}`} className="btn">
-              Live table
-            </Link>
-          )}
-        </div>
-      </div>
-
+    <div className="space-y-3">
       {graph && (
         <div className="flex flex-wrap items-center gap-3">
-          <span className="chip border-edge bg-ink-700/60 text-mute">
-            total paid <span className="stat-num ml-1.5 text-text">{formatUsd(graph.summary.totalPaid)}</span>
+          <span className="chip border-hairline bg-noir-700/60 text-bone-dim">
+            total paid <span className="stat-num ml-1.5 text-bone">{formatUsd(graph.summary.totalPaid)}</span>
           </span>
-          <span className="chip border-edge bg-ink-700/60 text-mute">
+          <span className="chip border-hairline bg-noir-700/60 text-bone-dim">
             {graph.nodes.length} nodes · {graph.edges.length} receipts
           </span>
           <FeeLegend />
         </div>
       )}
 
-      <div className="glass h-[560px] overflow-hidden p-0">
+      <div className="glass h-[520px] overflow-hidden p-0">
         {graph ? (
           <ReactFlow
             nodes={nodes}
@@ -144,26 +127,14 @@ export function GraphPage() {
             proOptions={{ hideAttribution: true }}
             minZoom={0.4}
           >
-            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#1c2031" />
+            <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#241a1d" />
           </ReactFlow>
         ) : (
-          <div className="grid h-full place-items-center text-sm text-ghost">
+          <div className="grid h-full place-items-center text-sm text-bone-faint">
             {graphQ.isError ? 'No graph for this hand.' : 'Loading graph…'}
           </div>
         )}
       </div>
-
-      {handQ.data?.hand?.commentary && (
-        <Panel title="Commentary">
-          <p className="text-sm text-text">{handQ.data.hand.commentary.summary}</p>
-          <p className="mt-2 text-xs text-mute">
-            <span className="text-agent">Best move:</span> {handQ.data.hand.commentary.bestMove}
-          </p>
-          <div className="mt-2 text-[10px] uppercase tracking-wide text-ghost">
-            source: {handQ.data.hand.commentary.source}
-          </div>
-        </Panel>
-      )}
     </div>
   );
 }

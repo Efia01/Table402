@@ -46,6 +46,8 @@ export interface AgentStatus {
   seated: number;
   /** Persistent bankroll for this client's agent (default if they've never played). */
   bankroll: number;
+  /** Stable agent id for this client (derived from clientId) — usable even when not seated. */
+  agentId: string;
 }
 
 function pickRandom<T>(arr: readonly T[]): T {
@@ -216,6 +218,7 @@ export class AgentController {
       botCount: this.bots.size,
       seated: this.ctx.table.seatedCount(),
       bankroll,
+      agentId: clientId ? this.agentIdFor(clientId) : '',
     };
   }
 
