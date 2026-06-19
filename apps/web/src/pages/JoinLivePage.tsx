@@ -9,6 +9,7 @@ import { fundWallet, payAndJoin, type PaidJoinResult } from '../lib/mpp';
 import { useMySeat, useReleaseOnExit } from '../lib/useMySeat';
 import { fmtChips } from '../components/BankrollPanel';
 import { MobileActionPanel } from '../components/MobileActionPanel';
+import { SpendLedger } from '../components/SpendLedger';
 import { Brand } from '../components/Layout';
 
 type Phase = 'connect' | 'funding' | 'signing' | 'seated' | 'error';
@@ -217,6 +218,13 @@ export function JoinLivePage() {
             {!seatedAndGone && seat.agentId && (
               <MobileActionPanel tableId={tableId} agentId={seat.agentId} />
             )}
+
+            <SpendLedger
+              payments={feed.payments}
+              agentId={seat.agentId ?? null}
+              walletBalance={mySeatQ.data?.walletBalance ?? null}
+              currency={mySeatQ.data?.currency ?? 'simUSD'}
+            />
 
             <div className="glass space-y-3 px-5 py-4">
               <Row label="Identity" value={seat.did ? truncDid(seat.did) : '—'} />

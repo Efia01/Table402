@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -10,8 +9,8 @@ import { PlayingCard, CardRow } from '../components/PlayingCard';
 import { PlayerHand } from '../components/PlayerHand';
 import { BankrollPanel, fmtChips } from '../components/BankrollPanel';
 import { JoinTableModal } from '../components/JoinTableModal';
-import { TacticalRetreat } from '../components/TacticalRetreat';
 import { JoinQR } from '../components/JoinQR';
+import { SpendLedger } from '../components/SpendLedger';
 import { useClientId } from '../lib/clientId';
 import { Panel, Empty } from '../components/primitives';
 
@@ -172,7 +171,7 @@ export function TablePage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const detail = useQuery({ queryKey: ['table', id], queryFn: () => api.table(id), refetchInterval: 4000 });
-  const { feed, send } = useTableFeed(id);
+  const { feed } = useTableFeed(id);
 
   const statusQ = useQuery({
     queryKey: ['agentStatus', clientId],
@@ -182,6 +181,14 @@ export function TablePage() {
   const mine = statusQ.data?.mine ?? null;
   // Not seated yet → the join modal gates entry (pick a table & buy-in).
   const notSeated = statusQ.isSuccess && !mine;
+
+  // The player's live simUSD wallet balance — drains as seat/hand/action fees settle.
+  const seatQ = useQuery({
+    queryKey: ['myseat', id, mine?.agentId],
+    queryFn: () => api.seat(id, { agentId: mine!.agentId }),
+    enabled: !!mine?.agentId,
+    refetchInterval: 2000,
+  });
 
   const hand = feed.hand ?? detail.data?.hand ?? null;
   const refetchKey = `${hand?.handId ?? ''}:${hand?.street ?? ''}:${hand?.toActSeat ?? ''}:${hand?.board?.length ?? 0}`;
@@ -232,29 +239,6 @@ export function TablePage() {
     await qc.invalidateQueries({ queryKey: ['agentStatus', clientId] });
     navigate('/');
   }
-
-  const myAgentId = mine?.agentId ?? null;
-  const handledRetreat = useRef(0);
-  function sitOut(): boolean {
-    return send({ type: 'sit-out', clientId });
-  }
-  function retreat(): boolean {
-    return send({ type: 'retreat', clientId });
-  }
-
-  useEffect(() => {
-    const r = feed.retreat;
-    if (!r || r.t === handledRetreat.current) return;
-    if (r.error) {
-      handledRetreat.current = r.t;
-      return;
-    }
-    if (myAgentId && r.agentId === myAgentId) {
-      handledRetreat.current = r.t;
-      void qc.invalidateQueries({ queryKey: ['agentStatus', clientId] });
-      if (r.mode === 'retreat') navigate('/');
-    }
-  }, [feed.retreat, myAgentId, clientId, qc, navigate]);
 
   return (
     <div className="space-y-5">
@@ -362,21 +346,17 @@ export function TablePage() {
         </div>
       )}
 
-      {/* ── Bankroll + action flow + outcomes, underneath the table ──── */}
+      {/* ── Bankroll + MPP spend, underneath the table ──── */}
       {mine && (
-        <div className="pt-2">
+        <div className="grid gap-5 pt-2 lg:grid-cols-2">
           <BankrollPanel mine={mine} tick={feed.lastComplete?.handId ?? ''} />
+          <SpendLedger
+            payments={feed.payments}
+            agentId={mine.agentId}
+            walletBalance={seatQ.data?.walletBalance ?? null}
+            currency={seatQ.data?.currency ?? 'simUSD'}
+          />
         </div>
-      )}
-      {mine && (
-        <TacticalRetreat
-          mine={mine}
-          clientId={clientId}
-          connected={feed.connected}
-          onSitOut={sitOut}
-          onRetreat={retreat}
-          onResume={() => void qc.invalidateQueries({ queryKey: ['agentStatus', clientId] })}
-        />
       )}
       <div className="grid gap-5 lg:grid-cols-3">
         <div className="lg:col-span-2">
