@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DEFAULT_TABLE } from '@table402/shared';
 import { useWallet } from '../lib/WalletProvider';
-import { hasBurnerWallet, hasInjectedWallet, shortAddress } from '../lib/wallet';
+import { hasBurnerWallet, hasInjectedWallet, shortAddress, type WalletConnection } from '../lib/wallet';
 import { useTableFeed } from '../lib/ws';
 import { API_BASE } from '../lib/api';
 import { fundWallet, payAndJoin, type PaidJoinResult } from '../lib/mpp';
 import { fmtChips } from '../components/BankrollPanel';
+import { MobileActionPanel } from '../components/MobileActionPanel';
 import { Brand } from '../components/Layout';
 
 type Phase = 'connect' | 'funding' | 'signing' | 'seated' | 'error';
@@ -35,43 +36,50 @@ export function JoinLivePage() {
     }
   }, [wallet]);
 
-  const join = useCallback(async () => {
-    if (!wallet.connection || attempted.current) return;
-    attempted.current = true;
-    const trimmed = name.trim();
-    if (trimmed) localStorage.setItem(NAME_KEY, trimmed);
-    try {
-      setPhase('funding');
-      setError(null);
-      await fundWallet(API_BASE, wallet.connection.address, trimmed || undefined);
-      setPhase('signing');
-      const result = await payAndJoin({
-        apiBase: API_BASE,
-        tableId,
-        client: wallet.connection.client,
-        address: wallet.connection.address,
-        did: wallet.connection.did,
-        account: wallet.connection.account,
-        name: trimmed || undefined,
-      });
-      if (!result.ok) {
+  const join = useCallback(
+    async (connection: WalletConnection) => {
+      if (attempted.current) return;
+      attempted.current = true;
+      const trimmed = name.trim();
+      if (trimmed) localStorage.setItem(NAME_KEY, trimmed);
+      try {
+        setPhase('funding');
+        setError(null);
+        await fundWallet(API_BASE, connection.address, trimmed || undefined);
+        setPhase('signing');
+        const result = await payAndJoin({
+          apiBase: API_BASE,
+          tableId,
+          client: connection.client,
+          address: connection.address,
+          did: connection.did,
+          account: connection.account,
+          name: trimmed || undefined,
+        });
+        if (!result.ok) {
+          attempted.current = false;
+          setError(result.error ?? 'The table could not seat you. It may be full.');
+          setPhase('error');
+          return;
+        }
+        setSeat(result);
+        setPhase('seated');
+      } catch (e) {
         attempted.current = false;
-        setError(result.error ?? 'The table could not seat you. It may be full.');
+        setError(e instanceof Error ? e.message : 'Could not complete the seat-fee payment.');
         setPhase('error');
-        return;
       }
-      setSeat(result);
-      setPhase('seated');
-    } catch (e) {
-      attempted.current = false;
-      setError(e instanceof Error ? e.message : 'Could not complete the seat-fee payment.');
-      setPhase('error');
-    }
-  }, [wallet.connection, name, tableId]);
+    },
+    [name, tableId],
+  );
 
-  useEffect(() => {
-    if (wallet.connection && phase === 'connect') void join();
-  }, [wallet.connection, phase, join]);
+  const takeSeat = useCallback(async () => {
+    let connection = wallet.connection;
+    if (!connection) {
+      connection = hasInjectedWallet() ? await wallet.connect() : wallet.connectBurner();
+    }
+    if (connection) void join(connection);
+  }, [wallet, join]);
 
   function retreat() {
     send({ type: 'retreat', clientId: wallet.connection?.did ?? '' });
@@ -106,9 +114,11 @@ export function JoinLivePage() {
                 Take a live seat
               </h1>
               <p className="mt-2 text-sm text-bone-dim">
-                {wallet.isAvailable
-                  ? 'Connect your wallet to sign the seat fee and sit down beside the agents.'
-                  : 'No wallet needed — a burner wallet is generated on this device to sign the seat fee.'}
+                {wallet.isConnected
+                  ? 'Pick your name, then take your seat — you sign the seat fee and sit down beside the agents.'
+                  : wallet.isAvailable
+                    ? 'Pick your name and connect your wallet to sign the seat fee and sit down.'
+                    : 'No wallet needed — a burner wallet on this device signs the seat fee. Pick your name to begin.'}
               </p>
             </div>
             <div className="text-left">
@@ -121,32 +131,20 @@ export function JoinLivePage() {
                 className="mt-2 w-full rounded-[3px] border border-hairline bg-noir-700/60 px-4 py-3 font-sans text-bone outline-none transition placeholder:text-bone-faint focus:border-crimson-bright/70"
               />
             </div>
-            {wallet.isAvailable ? (
-              <div className="space-y-3">
-                <button
-                  onClick={() => void wallet.connect()}
-                  disabled={wallet.isConnecting}
-                  className="btn-hero w-full justify-center py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {wallet.isConnecting ? 'Connecting…' : 'Connect wallet'}
-                  <span>→</span>
-                </button>
-                <button
-                  onClick={() => wallet.connectBurner()}
-                  className="btn w-full justify-center py-3 text-bone-dim"
-                >
-                  Use a burner wallet instead
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => wallet.connectBurner()}
-                className="btn-hero w-full justify-center py-3.5 text-base"
-              >
-                Create burner &amp; continue
-                <span>→</span>
-              </button>
-            )}
+            <button
+              onClick={() => void takeSeat()}
+              disabled={wallet.isConnecting}
+              className="btn-hero w-full justify-center py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {wallet.isConnecting
+                ? 'Connecting…'
+                : wallet.isConnected
+                  ? 'Take your seat'
+                  : wallet.isAvailable
+                    ? 'Connect & take your seat'
+                    : 'Create burner & take your seat'}
+              <span>→</span>
+            </button>
             {wallet.error && <p className="text-xs text-crimson-soft">{wallet.error}</p>}
           </div>
         )}
@@ -188,6 +186,10 @@ export function JoinLivePage() {
                   : `Seat #${seat.seatIndex ?? '—'} · paid the seat fee over MPP.`}
               </p>
             </div>
+
+            {!seatedAndGone && seat.agentId && (
+              <MobileActionPanel tableId={tableId} agentId={seat.agentId} />
+            )}
 
             <div className="glass space-y-3 px-5 py-4">
               <Row label="Identity" value={seat.did ? truncDid(seat.did) : '—'} />

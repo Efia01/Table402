@@ -46,6 +46,53 @@ function chargeSigningMessage(challenge: MppChallenge): string {
   });
 }
 
+interface SessionTerms {
+  source: string;
+  recipient: string;
+  currency: string;
+  deposit: string;
+  maxDeposit: string;
+  nonce: string;
+}
+
+function sessionSigningMessage(terms: SessionTerms): string {
+  return canonicalize({
+    type: 'mpp-session-open',
+    source: terms.source,
+    recipient: terms.recipient,
+    currency: terms.currency,
+    deposit: terms.deposit,
+    maxDeposit: terms.maxDeposit,
+    nonce: terms.nonce,
+  });
+}
+
+const SESSION_DEPOSIT = '250000';
+
+async function buildSessionAuth(opts: {
+  did: string;
+  recipient: string;
+  currency: string;
+  account?: Account;
+  client: WalletClient;
+  address: `0x${string}`;
+}): Promise<SessionTerms & { signature: `0x${string}` }> {
+  const terms: SessionTerms = {
+    source: opts.did,
+    recipient: opts.recipient,
+    currency: opts.currency,
+    deposit: SESSION_DEPOSIT,
+    maxDeposit: SESSION_DEPOSIT,
+    nonce: randomKey('snonce'),
+  };
+  const message = sessionSigningMessage(terms);
+  const signature =
+    opts.account && typeof opts.account.signMessage === 'function'
+      ? await opts.account.signMessage({ message })
+      : await opts.client.signMessage({ account: opts.address, message });
+  return { ...terms, signature };
+}
+
 function encodeJson(value: unknown): string {
   const json = JSON.stringify(value);
   const b64 = btoa(unescape(encodeURIComponent(json)));
@@ -119,9 +166,22 @@ export async function payAndJoin(opts: {
     idempotencyKey: randomKey('idem'),
   };
 
+  const session = await buildSessionAuth({
+    did: opts.did,
+    recipient: challenge.request.recipient,
+    currency: challenge.request.currency,
+    account: opts.account,
+    client: opts.client,
+    address: opts.address,
+  });
+
   const headers = new Headers(init.headers);
   headers.set('Authorization', `Payment ${encodeJson(credential)}`);
-  const second = await fetch(url, { ...init, headers });
+  const second = await fetch(url, {
+    ...init,
+    headers,
+    body: JSON.stringify({ ...bodyObj, session }),
+  });
 
   let receipt: MppReceipt | undefined;
   const receiptHeader = second.headers.get('Payment-Receipt');
