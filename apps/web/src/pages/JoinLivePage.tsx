@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { DEFAULT_TABLE } from '@table402/shared';
 import { useWallet } from '../lib/WalletProvider';
-import { shortAddress } from '../lib/wallet';
+import { hasBurnerWallet, hasInjectedWallet, shortAddress } from '../lib/wallet';
 import { useTableFeed } from '../lib/ws';
 import { API_BASE } from '../lib/api';
 import { fundWallet, payAndJoin, type PaidJoinResult } from '../lib/mpp';
@@ -28,6 +28,12 @@ export function JoinLivePage() {
   useEffect(() => {
     setName(localStorage.getItem(NAME_KEY) ?? '');
   }, []);
+
+  useEffect(() => {
+    if (!wallet.connection && !wallet.isConnecting && !hasInjectedWallet() && !hasBurnerWallet()) {
+      wallet.connectBurner();
+    }
+  }, [wallet]);
 
   const join = useCallback(async () => {
     if (!wallet.connection || attempted.current) return;
@@ -79,7 +85,12 @@ export function JoinLivePage() {
       <header className="flex items-center justify-between">
         <Brand />
         {wallet.isConnected && wallet.address && (
-          <span className="stat-num text-sm text-bone">{shortAddress(wallet.address)}</span>
+          <span className="flex items-center gap-2">
+            {wallet.isBurner && (
+              <span className="chip border-hairline text-bone-dim">Burner</span>
+            )}
+            <span className="stat-num text-sm text-bone">{shortAddress(wallet.address)}</span>
+          </span>
         )}
       </header>
 
@@ -94,7 +105,9 @@ export function JoinLivePage() {
                 Take a live seat
               </h1>
               <p className="mt-2 text-sm text-bone-dim">
-                Connect your wallet to sign the seat fee and sit down beside the agents.
+                {wallet.isAvailable
+                  ? 'Connect your wallet to sign the seat fee and sit down beside the agents.'
+                  : 'No wallet needed — a burner wallet is generated on this device to sign the seat fee.'}
               </p>
             </div>
             <div className="text-left">
@@ -107,18 +120,31 @@ export function JoinLivePage() {
                 className="mt-2 w-full rounded-[3px] border border-hairline bg-noir-700/60 px-4 py-3 font-sans text-bone outline-none transition placeholder:text-bone-faint focus:border-crimson-bright/70"
               />
             </div>
-            <button
-              onClick={() => void wallet.connect()}
-              disabled={!wallet.isAvailable || wallet.isConnecting}
-              className="btn-hero w-full justify-center py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {wallet.isConnecting ? 'Connecting…' : 'Connect wallet'}
-              <span>→</span>
-            </button>
-            {!wallet.isAvailable && (
-              <p className="text-xs text-bone-faint">
-                Open this page in a wallet-enabled browser to connect.
-              </p>
+            {wallet.isAvailable ? (
+              <div className="space-y-3">
+                <button
+                  onClick={() => void wallet.connect()}
+                  disabled={wallet.isConnecting}
+                  className="btn-hero w-full justify-center py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {wallet.isConnecting ? 'Connecting…' : 'Connect wallet'}
+                  <span>→</span>
+                </button>
+                <button
+                  onClick={() => wallet.connectBurner()}
+                  className="btn w-full justify-center py-3 text-bone-dim"
+                >
+                  Use a burner wallet instead
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => wallet.connectBurner()}
+                className="btn-hero w-full justify-center py-3.5 text-base"
+              >
+                Create burner &amp; continue
+                <span>→</span>
+              </button>
             )}
             {wallet.error && <p className="text-xs text-crimson-soft">{wallet.error}</p>}
           </div>

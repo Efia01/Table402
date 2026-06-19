@@ -8,8 +8,10 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  connectBurnerWallet,
   connectInjectedWallet,
   getAuthorizedWallet,
+  getBurnerWallet,
   hasInjectedWallet,
   type WalletConnection,
 } from './wallet';
@@ -20,9 +22,11 @@ interface WalletContextValue {
   did: string | null;
   isConnected: boolean;
   isAvailable: boolean;
+  isBurner: boolean;
   isConnecting: boolean;
   error: string | null;
   connect: () => Promise<WalletConnection | null>;
+  connectBurner: () => WalletConnection;
   disconnect: () => void;
 }
 
@@ -38,7 +42,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     let active = true;
     getAuthorizedWallet()
       .then((existing) => {
-        if (active && existing) setConnection(existing);
+        if (!active) return;
+        if (existing) {
+          setConnection(existing);
+          return;
+        }
+        const burner = getBurnerWallet();
+        if (burner) setConnection(burner);
       })
       .catch(() => {});
     return () => {
@@ -59,6 +69,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsConnecting(false);
     }
+  }, []);
+
+  const connectBurner = useCallback(() => {
+    setError(null);
+    const next = connectBurnerWallet();
+    setConnection(next);
+    return next;
   }, []);
 
   const disconnect = useCallback(() => {
@@ -91,12 +108,14 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       did: connection?.did ?? null,
       isConnected: connection !== null,
       isAvailable,
+      isBurner: connection?.kind === 'burner',
       isConnecting,
       error,
       connect,
+      connectBurner,
       disconnect,
     }),
-    [connection, isAvailable, isConnecting, error, connect, disconnect],
+    [connection, isAvailable, isConnecting, error, connect, connectBurner, disconnect],
   );
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
