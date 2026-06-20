@@ -58,6 +58,10 @@ export class MppxProvider implements MppProvider {
   private listener: ((event: LedgerEvent) => void) | null = null;
   private balanceCache = new Map<string, number>();
   private channels = new Map<string, Channel>();
+  // All txs from the single server wallet are serialized through one chain so
+  // nonces never collide (a real chain rejects parallel txs from one account).
+  private txChain: Promise<unknown> = Promise.resolve();
+  private nextNonce: number | null = null;
 
   constructor(opts: MppxProviderOptions) {
     const rpcUrl = opts.rpcUrl ?? tempoModerato.rpcUrls.default.http[0];
@@ -66,6 +70,40 @@ export class MppxProvider implements MppProvider {
     this.tokenDecimals = opts.tokenDecimals ?? tempoModerato.nativeCurrency.decimals;
     this.public = createPublicClient({ transport: http(rpcUrl) });
     this.wallet = createWalletClient({ account: this.account, transport: http(rpcUrl) });
+  }
+
+  /**
+   * Enqueue a pathUSD transfer from the server wallet, serialized with an
+   * explicit nonce so concurrent fees never collide on-chain. Returns the
+   * broadcast tx hash once it is its turn and accepted by the node.
+   */
+  private enqueueTransfer(to: `0x${string}`, value: bigint): Promise<`0x${string}`> {
+    const run = this.txChain.then(async () => {
+      if (this.nextNonce == null) {
+        this.nextNonce = await this.public.getTransactionCount({ address: this.account.address, blockTag: 'pending' });
+      }
+      const nonce = this.nextNonce;
+      try {
+        const hash = await this.wallet.writeContract({
+          account: this.account,
+          chain: tempoModerato,
+          address: this.token,
+          abi: TIP20_ABI,
+          functionName: 'transfer',
+          args: [to, value],
+          nonce,
+        });
+        this.nextNonce = nonce + 1;
+        return hash;
+      } catch (err) {
+        // Resync the nonce on failure so a single bad tx doesn't wedge the queue.
+        this.nextNonce = null;
+        throw err;
+      }
+    });
+    // Keep the chain alive regardless of this tx's outcome.
+    this.txChain = run.catch(() => undefined);
+    return run;
   }
 
   static fromEnv(): MppxProvider {
@@ -115,12 +153,24 @@ export class MppxProvider implements MppProvider {
     return this.balanceCache.get(key) ?? 0;
   }
 
-  credit(): void {
-    throw new MppError(
-      'verification-failed',
-      400,
-      'On-chain mode does not mint funds — fund the wallet from the Tempo testnet faucet.',
-    );
+  /**
+   * On-chain faucet: send real testnet pathUSD from the funded server wallet to
+   * `address` so a fresh player can pay its fees. Fire-and-confirm — returns
+   * immediately; the transfer settles on Tempo Moderato in the background.
+   * No-op for the server's own wallet (it is the source of funds).
+   */
+  credit(address: string, currency: string, amount: number, reference = 'faucet'): void {
+    if (amount <= 0) return;
+    const to = getAddress(address);
+    if (to === this.account.address) return;
+    const value = this.toBaseUnits(amount);
+    void this.enqueueTransfer(to, value)
+      .then((hash) => {
+        this.balanceCache.delete(`${to}|${currency}`);
+        this.emit({ kind: 'credit', to, currency, amount, reference, txHash: hash, explorerUrl: this.explorerTx(hash) });
+        return this.public.waitForTransactionReceipt({ hash });
+      })
+      .catch(() => undefined);
   }
 
   settleCharge(args: SettleChargeArgs): SettleResult {
@@ -128,17 +178,8 @@ export class MppxProvider implements MppProvider {
     if (amount < 0) throw new MppError('verification-failed', 400, 'Negative charge amount');
     const value = this.toBaseUnits(amount);
 
-    const pending = this.wallet.writeContract({
-      account: this.account,
-      chain: tempoModerato,
-      address: this.token,
-      abi: TIP20_ABI,
-      functionName: 'transfer',
-      args: [getAddress(to), value],
-    });
-
     const txHash = `pending:${reference}`;
-    void pending
+    void this.enqueueTransfer(getAddress(to), value)
       .then((hash) => {
         this.emit({
           kind: 'charge',
