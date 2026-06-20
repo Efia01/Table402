@@ -12,6 +12,8 @@ export interface AgentView {
   currentBet: number;
   toCall: number;
   stack: number;
+  /** Server-set epoch ms when this seat is expected to act — paces to match the UI ring. */
+  turnEndsAt?: number | null;
   legal: { types: string[]; callAmount: number; minRaiseTo: number; maxRaiseTo: number };
 }
 

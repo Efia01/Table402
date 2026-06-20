@@ -912,14 +912,25 @@ export class TableRuntime {
     const hand = this.current;
     if (!hand || hand.state.toAct == null) return;
     const participant = hand.participants.find((p) => p.position === hand.state.toAct);
-    const timeout = participant?.human
+
+    // The ring shows the real time until this seat acts:
+    //  • bot seats — the think-time they actually pause for (server-chosen, so
+    //    the ring and the action share one clock and stay perfectly in sync);
+    //  • human seats — their full action window.
+    const isHuman = !!participant?.human;
+    const display = isHuman
       ? this.ctx.config.humanTurnTimeoutMs
-      : this.ctx.config.turnTimeoutMs;
-    this.turnMs = timeout;
-    this.turnEndsAt = Date.now() + timeout;
+      : this.ctx.config.agentThinkMinMs +
+        Math.random() * Math.max(0, this.ctx.config.agentThinkMaxMs - this.ctx.config.agentThinkMinMs);
+    this.turnMs = Math.round(display);
+    this.turnEndsAt = Date.now() + this.turnMs;
+
+    // The auto-fold safety net: a human gets their full window; a bot gets a
+    // generous backstop in case it never acts (its own act fires at turnEndsAt).
+    const safety = isHuman ? this.ctx.config.humanTurnTimeoutMs : this.ctx.config.turnTimeoutMs;
     this.turnTimer = setTimeout(() => {
       void this.autoActCurrent();
-    }, timeout);
+    }, safety);
   }
 
   private clearTurnTimer(): void {
@@ -1058,6 +1069,7 @@ export class TableRuntime {
     toCall: number;
     stack: number;
     bankroll: number;
+    turnEndsAt: number | null;
     legal: { types: string[]; callAmount: number; minRaiseTo: number; maxRaiseTo: number };
   } | null {
     const hand = this.current;
@@ -1080,6 +1092,7 @@ export class TableRuntime {
       toCall: Math.max(0, hand.state.currentBet - seat.committedRound),
       stack: seat.stack,
       bankroll: this.seats[participant.seatIndex]?.bankroll ?? 0,
+      turnEndsAt: isTurn ? this.turnEndsAt : null,
       legal: {
         types: isTurn ? legal.types : [],
         callAmount: legal.callAmount,
