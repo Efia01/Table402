@@ -46,6 +46,147 @@ dashboard fill with live hands, a streaming payment feed, and verifiable receipt
 > Commentary uses a deterministic template by default. Set `ANTHROPIC_API_KEY` to enable
 > Claude (`claude-haiku-4-5`) commentary — the demo still runs with **no API keys**.
 
+---
+
+## Run it yourself — step by step (zero assumptions)
+
+If you've never run a Node project before, follow this exactly and it will work.
+
+### 0. Prerequisites (install these once)
+
+- **Node.js ≥ 22** — this is **mandatory**; the server uses Node's built-in `node:sqlite`,
+  which does **not** exist in Node 18/20 and the server will refuse to start.
+  - Check your version: `node -v` → it must print `v22.x` or higher.
+  - If it's lower, install Node 22+ (e.g. via [nvm](https://github.com/nvm-sh/nvm)):
+    `nvm install 22 && nvm use 22`
+- **pnpm** (the package manager this repo uses — *not* npm):
+  - `npm install -g pnpm` (or see [pnpm.io/installation](https://pnpm.io/installation))
+  - Check: `pnpm -v`
+
+### 1. Install dependencies
+
+From the repo root:
+
+```bash
+pnpm install
+```
+
+This installs every workspace. No native modules, no Docker, no database server — it's fully
+self-contained.
+
+### 2. Start the app (simulated mode — the default, needs nothing else)
+
+```bash
+pnpm dev
+```
+
+What this does, in order: resets + seeds the local SQLite database, then starts **both** the API
+server (port **4020**) and the web dashboard (port **5173**) together. Leave this terminal running.
+
+Now open **http://localhost:5173** in your browser. You'll see the landing page.
+
+> The terminal prints two colour-coded logs side by side (`server` in cyan, `web` in magenta).
+> To stop everything, press **Ctrl + C** in that terminal.
+
+### 3. (Optional) Fill the table with bots
+
+In a **second terminal** (leave `pnpm dev` running in the first):
+
+```bash
+pnpm demo
+```
+
+Six autonomous agents (Ada, Bruno, Cy, Delta, Echo, Faye) discover the table, each pays its seat
+fee over a real HTTP 402 handshake, and start playing hands. Watch the dashboard fill with live
+hands, a streaming payment feed, and receipt graphs.
+
+### 4. Play it yourself in the browser
+
+On the landing page click **Enter the Salon** → connect a wallet (or it creates a throwaway
+"burner" wallet automatically if you have no wallet extension) → pick a table → take your seat.
+When it's your turn you'll see your own cards and **Fold / Check / Call / Raise**. See
+[Play it from the browser](#play-it-from-the-browser) below for the full flow.
+
+### That's it.
+
+`pnpm install` → `pnpm dev` → open `localhost:5173`. Everything settles on a safe in-memory ledger;
+no real money, no wallet funding, no chain. To put it on a **real testnet**, see
+[Running on the real Tempo testnet](#running-on-the-real-tempo-testnet) below.
+
+---
+
+## Running on the real Tempo testnet
+
+By default everything settles on a simulated in-process ledger (instant, safe, zero setup). To make
+every fee a **real on-chain pathUSD transfer** on the **Tempo Moderato testnet** (chain `42431`),
+with real transaction hashes and block-explorer links in the receipt graph:
+
+> **Testnet only — never mainnet.** pathUSD on Moderato is valueless test money. Nothing here
+> touches real funds.
+
+1. **Get a wallet private key.** Any Ethereum-style `0x…` 64-hex key works (export one from
+   MetaMask, or generate a fresh one). This single wallet will settle **all** on-chain fees and
+   fund players, so treat it as the table's bank.
+
+2. **Fund it on Moderato.** Send the wallet some testnet **pathUSD** (and a little gas) from Tempo's
+   testnet faucet (see the [Tempo docs](https://docs.tempo.xyz)). Fund generously — it drains as the
+   demo runs.
+
+3. **Create a `.env` file** in the repo root (it is gitignored, so your key never gets committed):
+
+   ```bash
+   MPP_MODE=tempo-testnet
+   TEMPO_SIGNER_KEY=0x<your-funded-private-key>
+   ```
+
+   These defaults are already correct for Moderato; only set them if Tempo changes them:
+   `TEMPO_TOKEN=0x20c0000000000000000000000000000000000001`,
+   `TEMPO_RPC_URL=https://rpc.moderato.tempo.xyz`, `TEMPO_TOKEN_DECIMALS=6`.
+
+4. **Run as usual:** `pnpm dev`. The server auto-loads `.env`. Every seat / hand / action / service
+   fee now broadcasts a real pathUSD transfer; the receipt graph shows the live tx hash and a link
+   to `explore.testnet.tempo.xyz`.
+
+**Know the trade-offs:** on-chain settlement takes **seconds per fee**, so the game runs slower
+(the demo's `.env` pre-tunes think-times to keep it watchable). One funded wallet pays for
+everything (the server can't sign from players' own wallets), so it depletes over time. If the
+testnet RPC is slow or down, the demo suffers — keep **simulated mode as your fallback** (just set
+`MPP_MODE=simulated`, or delete `.env`). Without a funded `TEMPO_SIGNER_KEY`, the server stops at
+boot with a clear message — that's intentional.
+
+---
+
+## Show it to an audience (QR code → phones)
+
+Anyone can scan a QR code on the projector and join the live table **from their phone** — no app,
+no wallet required (a burner wallet is generated on their device).
+
+1. The table page shows a **"Scan to join live"** QR code. It points at `/join-live`.
+2. For phones to reach your laptop, expose the dashboard over **HTTPS** (mobile wallets and the
+   page need it). The easiest way is a tunnel like [ngrok](https://ngrok.com):
+   `ngrok http 5173` → use the `https://…ngrok-free.app` URL.
+3. Scanners land on a mobile-optimized page that creates a burner wallet, signs the **real 402**
+   seat fee from the phone, and drops them into the live table beside the agents.
+
+> `vite.config.ts` already sets `allowedHosts: true` so a tunnel host can reach the dev server.
+
+---
+
+## Troubleshooting
+
+| Symptom | Cause & fix |
+| --- | --- |
+| `node:sqlite` error, or server won't start | You're on Node < 22. Run `node -v`; install/switch to Node ≥ 22 (`nvm use 22`). |
+| `command not found: pnpm` | Install pnpm: `npm install -g pnpm`. Don't use `npm` to run this repo. |
+| Port `4020` or `5173` already in use | Another instance is running. Stop it, or set `PORT` (server) / edit `apps/web/vite.config.ts` (web). |
+| Cards / UI look stale after an update | Browser cache. Hard-refresh: **Ctrl/Cmd + Shift + R**. Restart `pnpm dev` if you pulled new assets. |
+| "Connecting…" never finishes on the landing page | A wallet extension popup is waiting for approval. Approve it, **or** open the page in Incognito (no extension) so it uses a burner instead. |
+| Phone can't load the QR link | `localhost` isn't reachable from a phone. Use an `https://` tunnel (ngrok) and scan that. |
+| Tempo mode: server exits at boot | `MPP_MODE=tempo-testnet` requires a funded `TEMPO_SIGNER_KEY` in `.env`. Add it, or use `MPP_MODE=simulated`. |
+| `/table/...` page errors | Use the real table id `neon-six-max-402` (the in-app links already do). |
+
+---
+
 ### Play it from the browser
 
 On any table page, click **▶ Sit down & play**. You take a seat (enforced **one per browser**);
