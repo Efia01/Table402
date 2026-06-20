@@ -12,12 +12,10 @@ export function SpendLedger({
   payments,
   agentId,
   walletBalance,
-  currency,
 }: {
   payments: ReceiptDTO[];
   agentId: string | null;
   walletBalance: number | null;
-  currency: string;
 }) {
   // My outgoing micro-payments, oldest→newest so we can accrue a running spend.
   const mine = payments.filter((p) => p.fromId === agentId).slice().reverse();
@@ -37,7 +35,7 @@ export function SpendLedger({
       title={<span className="font-display text-base normal-case tracking-normal text-bone">Your spend</span>}
       right={
         <div className="text-right">
-          <div className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">wallet · {currency}</div>
+          <div className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">wallet balance</div>
           <div className="stat-num text-sm text-bone tabular-nums">
             {walletBalance != null ? formatUsd(walletBalance) : '—'}
           </div>

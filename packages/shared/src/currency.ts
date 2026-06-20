@@ -3,7 +3,7 @@
  * real `mppx` provider can map onto them 1:1 when swapping out the simulated ledger.
  */
 export const SIM_USD = {
-  symbol: '$',
+  symbol: '€',
   code: 'simUSD',
   label: 'simUSD',
   atomicDecimals: 6,

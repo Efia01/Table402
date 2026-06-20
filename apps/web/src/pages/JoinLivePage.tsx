@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { DEFAULT_TABLE } from '@table402/shared';
+import { DEFAULT_TABLE, formatUsd } from '@table402/shared';
 import { useWallet } from '../lib/WalletProvider';
 import { hasBurnerWallet, hasInjectedWallet, shortAddress, type WalletConnection } from '../lib/wallet';
 import { useTableFeed } from '../lib/ws';
@@ -209,9 +209,7 @@ export function JoinLivePage() {
               </div>
               <div className="text-right">
                 <div className="stat-num text-2xl text-bone tabular-nums">{fmtUsdNum(mySeatQ.data?.walletBalance ?? 0)}</div>
-                <div className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">
-                  {mySeatQ.data?.currency ?? 'simUSD'}
-                </div>
+                <div className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">balance</div>
               </div>
             </div>
 
@@ -223,12 +221,11 @@ export function JoinLivePage() {
               payments={feed.payments}
               agentId={seat.agentId ?? null}
               walletBalance={mySeatQ.data?.walletBalance ?? null}
-              currency={mySeatQ.data?.currency ?? 'simUSD'}
             />
 
             <div className="glass space-y-3 px-5 py-4">
               <Row label="Identity" value={seat.did ? truncDid(seat.did) : '—'} />
-              <Row label="Seat fee" value={seat.receipt ? fmtUsd(seat.receipt.settlement.amount) : '$0.01'} />
+              <Row label="Seat fee" value={seat.receipt ? fmtUsd(seat.receipt.settlement.amount) : '€0.01'} />
               <Row label="Receipt" value={seat.receipt ? truncHash(seat.receipt.receiptHash) : 'minted'} />
             </div>
 
@@ -339,10 +336,9 @@ function truncHash(hash: string): string {
 }
 
 function fmtUsd(atomic: string): string {
-  return fmtUsdNum(Number(atomic));
+  return formatUsd(Number(atomic));
 }
 
 function fmtUsdNum(atomic: number): string {
-  const n = atomic / 1_000_000;
-  return `$${n.toFixed(n > 0 && n < 0.01 ? 4 : 2)}`;
+  return formatUsd(atomic);
 }

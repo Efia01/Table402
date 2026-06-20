@@ -364,7 +364,6 @@ export function TablePage() {
             payments={feed.payments}
             agentId={mine.agentId}
             walletBalance={seatQ.data?.walletBalance ?? null}
-            currency={seatQ.data?.currency ?? 'simUSD'}
           />
         </div>
       )}

@@ -213,11 +213,13 @@ export class TableRuntime {
     const seatIndex = this.firstEmptySeat();
     if (seatIndex == null) throw Object.assign(new Error('table is full'), { statusCode: 409 });
 
-    // Always keep one seat open for a human: a bot may not take the last free
-    // seat. Humans can use any seat (they are who the reserved seat is for).
+    // Once a human is at the table, keep one seat open so another human can
+    // always join: a bot may not take the last free seat. With no human seated
+    // yet, bots fill the table normally (so the all-bot demo seats all 6).
     if (!input.human) {
+      const humanSeated = this.seats.some((s) => s?.human);
       const free = this.seats.filter((s) => !s).length;
-      if (free <= 1) {
+      if (humanSeated && free <= 1) {
         throw Object.assign(new Error('seat reserved for a human player'), { statusCode: 409 });
       }
     }
