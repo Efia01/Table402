@@ -29,7 +29,7 @@ export function PlayerHand({
   const viewQ = useQuery({
     queryKey: ['myview', mine.agentId, refetchKey],
     queryFn: () => api.agentView(tableId, mine.agentId),
-    refetchInterval: 1500,
+    refetchInterval: 3000,
   });
   const v = viewQ.data?.view ?? null;
 

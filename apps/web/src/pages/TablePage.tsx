@@ -178,13 +178,13 @@ export function TablePage() {
   const clientId = useClientId();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const detail = useQuery({ queryKey: ['table', id], queryFn: () => api.table(id), refetchInterval: 4000 });
+  const detail = useQuery({ queryKey: ['table', id], queryFn: () => api.table(id), refetchInterval: 8000 });
   const { feed } = useTableFeed(id);
 
   const statusQ = useQuery({
     queryKey: ['agentStatus', clientId],
     queryFn: () => api.agentStatus(clientId),
-    refetchInterval: 2500,
+    refetchInterval: 5000,
   });
   const mine = statusQ.data?.mine ?? null;
   // Not seated yet → the join modal gates entry (pick a table & buy-in).
@@ -195,7 +195,7 @@ export function TablePage() {
     queryKey: ['myseat', id, mine?.agentId],
     queryFn: () => api.seat(id, { agentId: mine!.agentId }),
     enabled: !!mine?.agentId,
-    refetchInterval: 2000,
+    refetchInterval: 6000,
   });
 
   const hand = feed.hand ?? detail.data?.hand ?? null;
@@ -204,7 +204,7 @@ export function TablePage() {
     queryKey: ['myview', mine?.agentId, refetchKey],
     queryFn: () => api.agentView(id, mine!.agentId),
     enabled: !!mine?.agentId,
-    refetchInterval: 1500,
+    refetchInterval: 3000,
   });
   const myCards = myViewQ.data?.view?.isInHand ? myViewQ.data.view.holeCards : null;
   const seats: SeatDTO[] =

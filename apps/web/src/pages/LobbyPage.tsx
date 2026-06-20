@@ -7,8 +7,8 @@ import { Panel, Stat, Empty } from '../components/primitives';
 import { SettlementBadge } from '../components/SettlementBadge';
 
 export function LobbyPage() {
-  const tables = useQuery({ queryKey: ['tables'], queryFn: api.tables, refetchInterval: 3000 });
-  const agents = useQuery({ queryKey: ['agents'], queryFn: api.agents, refetchInterval: 3000 });
+  const tables = useQuery({ queryKey: ['tables'], queryFn: api.tables, refetchInterval: 6000 });
+  const agents = useQuery({ queryKey: ['agents'], queryFn: api.agents, refetchInterval: 6000 });
   const discovery = useQuery({ queryKey: ['discovery'], queryFn: api.discovery, refetchInterval: 30000 });
 
   const table = tables.data?.tables[0];

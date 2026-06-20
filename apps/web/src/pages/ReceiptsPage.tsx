@@ -22,7 +22,7 @@ export function ReceiptsPage() {
     return s ? `?${s}` : '';
   }, [kind, agent, hand]);
 
-  const receipts = useQuery({ queryKey: ['receipts', qs], queryFn: () => api.receipts(qs), refetchInterval: 4000 });
+  const receipts = useQuery({ queryKey: ['receipts', qs], queryFn: () => api.receipts(qs), refetchInterval: 8000 });
   const agents = useQuery({ queryKey: ['agents'], queryFn: api.agents });
 
   const total = receipts.data?.receipts.reduce((s, r) => s + r.amount, 0) ?? 0;

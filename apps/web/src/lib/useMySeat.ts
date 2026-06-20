@@ -20,7 +20,7 @@ export function useMySeat(tableId: string) {
     queryKey: ['myseat', tableId, did],
     queryFn: () => api.seat(tableId, { did: did! }),
     enabled: !!did,
-    refetchInterval: 3000,
+    refetchInterval: 6000,
   });
 }
 

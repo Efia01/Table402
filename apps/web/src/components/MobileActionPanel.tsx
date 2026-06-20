@@ -16,7 +16,7 @@ export function MobileActionPanel({ tableId, agentId }: { tableId: string; agent
   const viewQ = useQuery({
     queryKey: ['myview', agentId],
     queryFn: () => api.agentView(tableId, agentId),
-    refetchInterval: 1200,
+    refetchInterval: 2000,
   });
   const v = viewQ.data?.view ?? null;
 
