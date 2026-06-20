@@ -50,6 +50,17 @@ export interface LedgerEvent {
  * A real `mppx`/Tempo provider would implement this same interface against the
  * Tempo testnet, and the rest of the system would be unchanged.
  */
+export interface SettlementInfo {
+  /** 'simulated' or 'tempo-testnet'. */
+  mode: string;
+  /** True when fees settle on a real chain. */
+  onChain: boolean;
+  /** The on-chain wallet that settles every fee (on-chain mode only). */
+  signerAddress?: string;
+  /** Block-explorer base URL (on-chain mode only). */
+  explorerUrl?: string;
+}
+
 export interface MppProvider {
   readonly mode: string;
   createIdentity(privateKey?: `0x${string}`): MppIdentity;
@@ -60,6 +71,8 @@ export interface MppProvider {
   settleVoucher(args: VoucherArgs): SettleResult;
   closeChannel(channelId: string, reference?: string): { refunded: number };
   setListener(fn: (event: LedgerEvent) => void): void;
+  /** How/where fees settle — surfaced to the UI for the explorer link. */
+  settlement?(): SettlementInfo;
 }
 
 interface Channel {
@@ -97,6 +110,10 @@ export class SimulatedProvider implements MppProvider {
 
   setListener(fn: (event: LedgerEvent) => void): void {
     this.listener = fn;
+  }
+
+  settlement(): SettlementInfo {
+    return { mode: this.mode, onChain: false };
   }
 
   createIdentity(privateKey?: `0x${string}`): MppIdentity {

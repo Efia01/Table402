@@ -173,6 +173,8 @@ export interface TableDetail {
 }
 
 export const api = {
+  settlement: () =>
+    get<{ mode: string; onChain: boolean; signerAddress?: string; explorerUrl?: string }>('/settlement'),
   tables: () => get<{ tables: TableDTO[] }>('/tables'),
   table: (id: string) => get<TableDetail>(`/tables/${id}`),
   agents: () => get<{ agents: AgentRow[] }>('/agents'),

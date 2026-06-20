@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { formatUsd, archetypeColor, shorten } from '../lib/ui';
 import { Panel, Stat, Empty } from '../components/primitives';
+import { SettlementBadge } from '../components/SettlementBadge';
 
 export function LobbyPage() {
   const tables = useQuery({ queryKey: ['tables'], queryFn: api.tables, refetchInterval: 3000 });
@@ -14,9 +15,12 @@ export function LobbyPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Lobby</h1>
-        <p className="text-sm text-mute">Open tables, live pricing, the agents in the arena, and discovered services.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Lobby</h1>
+          <p className="text-sm text-mute">Open tables, live pricing, the agents in the arena, and discovered services.</p>
+        </div>
+        <SettlementBadge />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

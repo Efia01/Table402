@@ -15,6 +15,7 @@ import type {
   LedgerEvent,
   MppProvider,
   OpenChannelArgs,
+  SettlementInfo,
   SettleChargeArgs,
   SettleResult,
   VoucherArgs,
@@ -134,6 +135,15 @@ export class MppxProvider implements MppProvider {
 
   private explorerTx(hash: string): string {
     return `${tempoModerato.blockExplorers.default.url}/tx/${hash}`;
+  }
+
+  settlement(): SettlementInfo {
+    return {
+      mode: this.mode,
+      onChain: true,
+      signerAddress: this.account.address,
+      explorerUrl: tempoModerato.blockExplorers.default.url,
+    };
   }
 
   setListener(fn: (event: LedgerEvent) => void): void {

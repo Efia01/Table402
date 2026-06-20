@@ -1,5 +1,5 @@
 import { useWallet } from '../lib/WalletProvider';
-import { shortAddress } from '../lib/wallet';
+import { CopyAddress } from './CopyAddress';
 
 export function WalletButton() {
   const { isConnected, isAvailable, isConnecting, address, did, error, connect, disconnect } =
@@ -17,7 +17,7 @@ export function WalletButton() {
           </div>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-            <span className="stat-num text-sm text-bone">{shortAddress(address)}</span>
+            <CopyAddress address={address} />
           </div>
         </div>
         <button onClick={disconnect} className="btn">

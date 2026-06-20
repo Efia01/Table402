@@ -160,6 +160,11 @@ async function bootstrap(): Promise<void> {
   }));
   app.get('/healthz', async () => ({ ok: true, hands: ctx.table.completedHands }));
 
+  // How/where fees settle — lets the UI show the on-chain signer + explorer link.
+  app.get('/settlement', async () =>
+    ctx.provider.settlement?.() ?? { mode: ctx.provider.mode, onChain: false },
+  );
+
   registerRngService(app, ctx);
   registerRefereeService(app, ctx);
   registerCommentaryService(app, ctx);
