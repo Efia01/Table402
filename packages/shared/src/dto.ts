@@ -62,6 +62,10 @@ export const HandStateDTO = z.object({
   buttonSeat: z.number().int(),
   smallBlind: z.number().int(),
   bigBlind: z.number().int(),
+  /** Epoch ms when the acting player's deadline expires (null between turns). */
+  turnEndsAt: z.number().int().nullable().optional(),
+  /** Total length (ms) of the current turn window, for sizing the countdown ring. */
+  turnMs: z.number().int().nullable().optional(),
 });
 export type HandStateDTO = z.infer<typeof HandStateDTO>;
 

@@ -98,6 +98,10 @@ export class TableRuntime {
   private current: CurrentHand | null = null;
   private pendingSeatFees = new Map<string, GraphPayment>();
   private turnTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Epoch ms when the current player's action deadline expires (null between turns). */
+  private turnEndsAt: number | null = null;
+  /** Total length (ms) of the current turn window — so the client can size the ring. */
+  private turnMs: number | null = null;
   private nextHandTimer: ReturnType<typeof setTimeout> | null = null;
   private starting = false;
 
@@ -208,6 +212,15 @@ export class TableRuntime {
     }
     const seatIndex = this.firstEmptySeat();
     if (seatIndex == null) throw Object.assign(new Error('table is full'), { statusCode: 409 });
+
+    // Always keep one seat open for a human: a bot may not take the last free
+    // seat. Humans can use any seat (they are who the reserved seat is for).
+    if (!input.human) {
+      const free = this.seats.filter((s) => !s).length;
+      if (free <= 1) {
+        throw Object.assign(new Error('seat reserved for a human player'), { statusCode: 409 });
+      }
+    }
 
     let sessionId: string | null = null;
     if (input.sessionAuth) {
@@ -529,8 +542,8 @@ export class TableRuntime {
       }
 
       this.ctx.hub.broadcast(this.cfg.id, { type: 'hand-start', handId, number });
-      this.broadcastState();
       this.armTurnTimer();
+      this.broadcastState();
     } finally {
       this.starting = false;
     }
@@ -654,8 +667,8 @@ export class TableRuntime {
     if (newState.street === 'complete') {
       await this.finishHand();
     } else {
-      this.broadcastState();
       this.armTurnTimer();
+      this.broadcastState();
     }
     return { ok: true };
   }
@@ -900,6 +913,8 @@ export class TableRuntime {
     const timeout = participant?.human
       ? this.ctx.config.humanTurnTimeoutMs
       : this.ctx.config.turnTimeoutMs;
+    this.turnMs = timeout;
+    this.turnEndsAt = Date.now() + timeout;
     this.turnTimer = setTimeout(() => {
       void this.autoActCurrent();
     }, timeout);
@@ -910,6 +925,8 @@ export class TableRuntime {
       clearTimeout(this.turnTimer);
       this.turnTimer = null;
     }
+    this.turnEndsAt = null;
+    this.turnMs = null;
   }
 
   private async autoActCurrent(): Promise<void> {
@@ -990,6 +1007,8 @@ export class TableRuntime {
       buttonSeat: hand.participants.find((p) => p.position === hand.config.button)?.seatIndex ?? 0,
       smallBlind: this.cfg.smallBlind,
       bigBlind: this.cfg.bigBlind,
+      turnEndsAt: this.turnEndsAt,
+      turnMs: this.turnMs,
     };
   }
 

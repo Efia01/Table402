@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { CenterArt, CornerSuit, suitColor, type Suit } from './cardArt';
 
@@ -147,6 +147,12 @@ export function PlayingCard({
   const [imgFailed, setImgFailed] = useState(false);
   const useImage = CARD_IMAGES_ENABLED && !imgFailed;
 
+  // Flip in only when this slot's card actually changes (first deal, or a reveal
+  // null→card) — never on unrelated re-renders triggered by other players acting.
+  const prev = useRef<string | null | undefined>(undefined);
+  const changed = prev.current !== card;
+  prev.current = card;
+
   // Render the supplied PNG exactly as-is (contain, no clipping/recolouring),
   // with only a soft shadow so it reads on the felt.
   const imgStyle = {
@@ -171,6 +177,10 @@ export function PlayingCard({
     );
   }
 
+  if (!changed) {
+    return <div style={{ width: s.w, height: s.h }}>{inner}</div>;
+  }
+
   return (
     <motion.div
       initial={{ rotateY: 90, opacity: 0, y: -6 }}
@@ -187,7 +197,7 @@ export function CardRow({ cards, size = 'md' }: { cards: (string | null)[]; size
   return (
     <div className="flex" style={{ gap: size === 'xl' ? 8 : size === 'lg' ? 6 : 4 }}>
       {cards.map((c, i) => (
-        <PlayingCard key={`${c ?? 'x'}-${i}`} card={c} size={size} index={i} />
+        <PlayingCard key={i} card={c} size={size} index={i} />
       ))}
     </div>
   );

@@ -6,6 +6,7 @@ import { api } from '../lib/api';
 import { useTableFeed } from '../lib/ws';
 import { archetypeColor } from '../lib/ui';
 import { PlayingCard, CardRow } from '../components/PlayingCard';
+import { TurnTimer } from '../components/TurnTimer';
 import { PlayerHand } from '../components/PlayerHand';
 import { BankrollPanel, fmtChips } from '../components/BankrollPanel';
 import { JoinTableModal } from '../components/JoinTableModal';
@@ -40,6 +41,8 @@ function SeatPod({
   isYou,
   blind,
   lastAction,
+  turnEndsAt,
+  turnMs,
 }: {
   seat: SeatDTO;
   isTurn: boolean;
@@ -47,6 +50,8 @@ function SeatPod({
   isYou?: boolean;
   blind?: 'SB' | 'BB' | null;
   lastAction?: string | null;
+  turnEndsAt?: number | null;
+  turnMs?: number | null;
 }) {
   const empty = !seat || !seat.agentId;
   const folded = seat?.status === 'folded';
@@ -87,6 +92,9 @@ function SeatPod({
           boxShadow: isTurn ? '0 0 26px -6px rgba(227,52,75,0.6)' : undefined,
         }}
       >
+        {isTurn && turnEndsAt != null && turnMs != null && (
+          <TurnTimer endsAt={turnEndsAt} totalMs={turnMs} />
+        )}
         <span
           className="grid h-8 w-8 shrink-0 place-items-center rounded-full border font-display text-sm text-bone"
           style={{ borderColor: tone, background: 'rgba(0,0,0,0.35)' }}
@@ -314,7 +322,7 @@ export function TablePage() {
           <div className="absolute left-1/2 top-[66%] -translate-x-1/2 -translate-y-1/2">
             <div className="flex items-center justify-center" style={{ gap: 10 }}>
               {communitySlots.map((c, i) => (
-                <CommunitySlot key={`${c ?? 'slot'}-${i}`} card={c} index={i} />
+                <CommunitySlot key={i} card={c} index={i} />
               ))}
             </div>
           </div>
@@ -333,6 +341,8 @@ export function TablePage() {
                 myCards={mine?.seatIndex === seat.index ? myCards : null}
                 blind={blinds[seat.index] ?? null}
                 lastAction={lastActionBySeat[seat.index] ?? null}
+                turnEndsAt={hand?.turnEndsAt ?? null}
+                turnMs={hand?.turnMs ?? null}
               />
             </div>
           ))}
