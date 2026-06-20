@@ -116,7 +116,7 @@ export class MppxProvider implements MppProvider {
         'MPP_MODE=tempo-testnet requires TEMPO_SIGNER_KEY (a funded 0x private key on Tempo Moderato).',
       );
     }
-    const token = envKey('TEMPO_TOKEN') ?? '0x20c0000000000000000000000000000000000001';
+    const token = envKey('TEMPO_TOKEN') ?? '0x20c0000000000000000000000000000000000000';
     return new MppxProvider({
       signerKey: signerKey as Hex,
       token: token as `0x${string}`,
