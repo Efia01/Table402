@@ -28,7 +28,7 @@ export function SettlementBadge() {
         live on Tempo testnet
       </span>
       <span className="text-xs text-bone-dim">
-        fees settle on-chain from
+        each player signs their own 402; the table wallet settles them on-chain
       </span>
       {s.signerAddress && <CopyAddress address={s.signerAddress} label="settler" />}
     </div>

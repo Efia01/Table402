@@ -10,14 +10,14 @@ export function WalletButton() {
       <div className="flex items-center gap-3">
         <div
           className="rounded-[3px] border border-hairline bg-noir-900/60 px-4 py-1.5 text-right"
-          title={did ?? undefined}
+          title={`${did ?? ''}\nYour signing identity — it authorizes (signs) the 402 payments. The table's wallet settles them on-chain.`}
         >
           <div className="font-mono text-[10px] uppercase tracking-widest2 text-bone-faint">
-            Identity
+            Signing identity
           </div>
           <div className="flex items-center gap-2">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-            <CopyAddress address={address} />
+            <CopyAddress address={address} showExplorer={false} />
           </div>
         </div>
         <button onClick={disconnect} className="btn">
