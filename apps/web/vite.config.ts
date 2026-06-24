@@ -6,6 +6,7 @@ const API_TARGET = process.env.VITE_API_TARGET ?? 'http://127.0.0.1:4020';
 export default defineConfig({
   plugins: [react()],
   server: {
+    allowedHosts: true,
     port: 5173,
     proxy: {
       '/api': { target: API_TARGET, changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, '') },

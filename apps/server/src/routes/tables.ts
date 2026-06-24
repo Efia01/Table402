@@ -43,6 +43,12 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
     return { view };
   });
 
+  // Reclaim lookup: is this identity (agentId or did) already holding a seat?
+  app.get('/tables/:id/seat', async (req) => {
+    const { agentId, did } = req.query as { agentId?: string; did?: string };
+    return ctx.table.findSeat({ agentId, did });
+  });
+
   // --- Join: 402 seat fee, then take a seat (+ optional session) ---
   app.post(
     '/tables/:id/join',
@@ -63,6 +69,7 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
       // `buyIn` is read raw (not part of the shared JoinRequest schema, which strips unknown keys).
       const rawBuyIn = Number((req.body as { buyIn?: unknown })?.buyIn);
       const requestedBuyIn = Number.isFinite(rawBuyIn) && rawBuyIn > 0 ? Math.floor(rawBuyIn) : undefined;
+      const human = (req.body as { human?: unknown })?.human === true;
       const agentId = body.agentId ?? `agent-${address.slice(2, 10).toLowerCase()}`;
       const name = body.name ?? agentId;
       const archetype = body.archetype ?? 'random';
@@ -85,6 +92,7 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
           seatReceipt: receipt,
           sessionAuth: body.session as SessionAuthorization | undefined,
           requestedBuyIn,
+          human,
         });
         return { ok: true, seatIndex, sessionId, agentId, did, balance: ctx.balanceOf(address) };
       } catch (err) {
@@ -165,9 +173,13 @@ export function registerTableRoutes(app: FastifyInstance, ctx: AppContext): void
   });
 
   app.post('/tables/:id/leave', async (req) => {
-    const body = (req.body ?? {}) as { agentId?: string };
-    if (!body.agentId) return { ok: false, error: 'agentId required' };
-    const result = await ctx.table.leave(body.agentId);
+    const body = (req.body ?? {}) as { agentId?: string; did?: string };
+    let agentId = body.agentId;
+    if (!agentId && body.did) {
+      agentId = ctx.table.findSeat({ did: body.did }).agentId ?? undefined;
+    }
+    if (!agentId) return { ok: false, error: 'agentId or did required' };
+    const result = await ctx.table.leave(agentId);
     return { ok: result.left, refunded: result.refunded };
   });
 

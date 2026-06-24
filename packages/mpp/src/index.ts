@@ -4,6 +4,7 @@ export * from './receipt';
 export * from './identity';
 export * from './signing';
 export * from './provider';
+export * from './mppx-provider';
 export * from './server';
 export * from './client';
 export * from './credential';

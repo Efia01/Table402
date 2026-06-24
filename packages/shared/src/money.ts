@@ -35,9 +35,9 @@ export function formatUnits(units: number, maxDecimals = ATOMIC_DECIMALS, minDec
   return `${neg ? '-' : ''}${wholeStr}${fracStr ? '.' + fracStr : ''}`;
 }
 
-/** Format atomic units as a `$`-prefixed amount, e.g. 200 -> "$0.0002". */
+/** Format atomic units as a `€`-prefixed amount, e.g. 200 -> "€0.0002". */
 export function formatUsd(units: number, opts?: { maxDecimals?: number; minDecimals?: number }): string {
-  return `$${formatUnits(units, opts?.maxDecimals ?? ATOMIC_DECIMALS, opts?.minDecimals ?? 2)}`;
+  return `€${formatUnits(units, opts?.maxDecimals ?? ATOMIC_DECIMALS, opts?.minDecimals ?? 2)}`;
 }
 
 /** Atomic units -> MPP wire amount (a string of atomic units, per the spec). */

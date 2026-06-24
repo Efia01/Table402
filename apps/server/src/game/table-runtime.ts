@@ -47,6 +47,8 @@ interface Seat {
   /** Optional player-chosen per-hand buy-in cap (chips). Defaults to the table cap. */
   requestedBuyIn?: number;
   sessionId: string | null;
+  /** True for client-signed human seats — gets a tighter idle-action deadline. */
+  human: boolean;
 }
 
 interface Participant {
@@ -59,6 +61,7 @@ interface Participant {
   did: string;
   buyIn: number;
   sessionId: string | null;
+  human: boolean;
 }
 
 interface CurrentHand {
@@ -95,6 +98,10 @@ export class TableRuntime {
   private current: CurrentHand | null = null;
   private pendingSeatFees = new Map<string, GraphPayment>();
   private turnTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Epoch ms when the current player's action deadline expires (null between turns). */
+  private turnEndsAt: number | null = null;
+  /** Total length (ms) of the current turn window — so the client can size the ring. */
+  private turnMs: number | null = null;
   private nextHandTimer: ReturnType<typeof setTimeout> | null = null;
   private starting = false;
 
@@ -198,12 +205,24 @@ export class TableRuntime {
     seatReceipt: MppReceipt;
     sessionAuth?: SessionAuthorization;
     requestedBuyIn?: number;
+    human?: boolean;
   }): Promise<{ seatIndex: number; sessionId: string | null }> {
     if (this.seats.some((s) => s?.agentId === input.agentId)) {
       throw Object.assign(new Error('agent already seated'), { statusCode: 409 });
     }
     const seatIndex = this.firstEmptySeat();
     if (seatIndex == null) throw Object.assign(new Error('table is full'), { statusCode: 409 });
+
+    // Once a human is at the table, keep one seat open so another human can
+    // always join: a bot may not take the last free seat. With no human seated
+    // yet, bots fill the table normally (so the all-bot demo seats all 6).
+    if (!input.human) {
+      const humanSeated = this.seats.some((s) => s?.human);
+      const free = this.seats.filter((s) => !s).length;
+      if (humanSeated && free <= 1) {
+        throw Object.assign(new Error('seat reserved for a human player'), { statusCode: 409 });
+      }
+    }
 
     let sessionId: string | null = null;
     if (input.sessionAuth) {
@@ -244,6 +263,7 @@ export class TableRuntime {
       requestedBuyIn:
         input.requestedBuyIn && input.requestedBuyIn > 0 ? Math.floor(input.requestedBuyIn) : undefined,
       sessionId,
+      human: input.human ?? false,
     };
     this.seats[seatIndex] = seat;
 
@@ -283,6 +303,38 @@ export class TableRuntime {
   hasOpenSession(agentId: string): string | null {
     const seat = this.seats.find((s) => s?.agentId === agentId);
     return seat?.sessionId ?? null;
+  }
+
+  /** Resolve a seat by agentId or DID — used to reclaim a seat after reload/back.
+   *  Also returns the seat's live simUSD wallet balance (drains as fees settle). */
+  findSeat(key: { agentId?: string; did?: string }): {
+    seated: boolean;
+    seatIndex: number | null;
+    agentId: string | null;
+    name: string | null;
+    sessionId: string | null;
+    address: string | null;
+    walletBalance: number;
+    currency: string;
+  } {
+    const seat = this.seats.find(
+      (s) => s && ((key.agentId && s.agentId === key.agentId) || (key.did && s.did === key.did)),
+    );
+    const address = seat?.address ?? null;
+    const walletBalance = address ? this.ctx.balanceOf(address) : 0;
+    if (!seat) {
+      return { seated: false, seatIndex: null, agentId: null, name: null, sessionId: null, address, walletBalance, currency: this.cfg.currency };
+    }
+    return {
+      seated: true,
+      seatIndex: seat.seatIndex,
+      agentId: seat.agentId,
+      name: seat.name,
+      sessionId: seat.sessionId,
+      address,
+      walletBalance,
+      currency: this.cfg.currency,
+    };
   }
 
   /** Close an agent's session (refunding unspent escrow) and free its seat. */
@@ -446,6 +498,7 @@ export class TableRuntime {
         did: seat.did,
         buyIn: seat.buyIn,
         sessionId: seat.sessionId,
+        human: seat.human,
       }));
 
       const config: HandConfig = {
@@ -491,8 +544,8 @@ export class TableRuntime {
       }
 
       this.ctx.hub.broadcast(this.cfg.id, { type: 'hand-start', handId, number });
-      this.broadcastState();
       this.armTurnTimer();
+      this.broadcastState();
     } finally {
       this.starting = false;
     }
@@ -616,8 +669,8 @@ export class TableRuntime {
     if (newState.street === 'complete') {
       await this.finishHand();
     } else {
-      this.broadcastState();
       this.armTurnTimer();
+      this.broadcastState();
     }
     return { ok: true };
   }
@@ -792,12 +845,18 @@ export class TableRuntime {
     await this.ctx.snapshotBalances();
 
     this.handsCompleted += 1;
+    const pots = result.pots ?? [];
+    const split = pots.some((p) => p.winners.length > 1);
+    const showdown = (result.showdown ?? []).some((e) => !e.folded);
     this.ctx.hub.broadcast(this.cfg.id, {
       type: 'hand-complete',
       handId: hand.id,
       winners: winnersOut,
       board: cardsToStrings(state.board),
       results,
+      potCount: pots.length,
+      split,
+      showdown,
     });
     this.broadcastState();
     this.ctx.hub.broadcast(this.cfg.id, { type: 'graph', handId: hand.id });
@@ -852,9 +911,26 @@ export class TableRuntime {
     this.clearTurnTimer();
     const hand = this.current;
     if (!hand || hand.state.toAct == null) return;
+    const participant = hand.participants.find((p) => p.position === hand.state.toAct);
+
+    // The ring shows the real time until this seat acts:
+    //  • bot seats — the think-time they actually pause for (server-chosen, so
+    //    the ring and the action share one clock and stay perfectly in sync);
+    //  • human seats — their full action window.
+    const isHuman = !!participant?.human;
+    const display = isHuman
+      ? this.ctx.config.humanTurnTimeoutMs
+      : this.ctx.config.agentThinkMinMs +
+        Math.random() * Math.max(0, this.ctx.config.agentThinkMaxMs - this.ctx.config.agentThinkMinMs);
+    this.turnMs = Math.round(display);
+    this.turnEndsAt = Date.now() + this.turnMs;
+
+    // The auto-fold safety net: a human gets their full window; a bot gets a
+    // generous backstop in case it never acts (its own act fires at turnEndsAt).
+    const safety = isHuman ? this.ctx.config.humanTurnTimeoutMs : this.ctx.config.turnTimeoutMs;
     this.turnTimer = setTimeout(() => {
       void this.autoActCurrent();
-    }, this.ctx.config.turnTimeoutMs);
+    }, safety);
   }
 
   private clearTurnTimer(): void {
@@ -862,6 +938,8 @@ export class TableRuntime {
       clearTimeout(this.turnTimer);
       this.turnTimer = null;
     }
+    this.turnEndsAt = null;
+    this.turnMs = null;
   }
 
   private async autoActCurrent(): Promise<void> {
@@ -876,7 +954,9 @@ export class TableRuntime {
       this.ctx.hub.broadcast(this.cfg.id, {
         type: 'log',
         level: 'warn',
-        message: `${participant.name} timed out — auto ${type}`,
+        message: participant.human
+          ? `${participant.name} idled out — auto ${type} (table keeps moving)`
+          : `${participant.name} timed out — auto ${type}`,
       });
     } catch {
       /* ignore */
@@ -940,6 +1020,8 @@ export class TableRuntime {
       buttonSeat: hand.participants.find((p) => p.position === hand.config.button)?.seatIndex ?? 0,
       smallBlind: this.cfg.smallBlind,
       bigBlind: this.cfg.bigBlind,
+      turnEndsAt: this.turnEndsAt,
+      turnMs: this.turnMs,
     };
   }
 
@@ -987,6 +1069,7 @@ export class TableRuntime {
     toCall: number;
     stack: number;
     bankroll: number;
+    turnEndsAt: number | null;
     legal: { types: string[]; callAmount: number; minRaiseTo: number; maxRaiseTo: number };
   } | null {
     const hand = this.current;
@@ -1009,6 +1092,7 @@ export class TableRuntime {
       toCall: Math.max(0, hand.state.currentBet - seat.committedRound),
       stack: seat.stack,
       bankroll: this.seats[participant.seatIndex]?.bankroll ?? 0,
+      turnEndsAt: isTurn ? this.turnEndsAt : null,
       legal: {
         types: isTurn ? legal.types : [],
         callAmount: legal.callAmount,

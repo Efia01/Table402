@@ -160,6 +160,11 @@ async function bootstrap(): Promise<void> {
   }));
   app.get('/healthz', async () => ({ ok: true, hands: ctx.table.completedHands }));
 
+  // How/where fees settle — lets the UI show the on-chain signer + explorer link.
+  app.get('/settlement', async () =>
+    ctx.provider.settlement?.() ?? { mode: ctx.provider.mode, onChain: false },
+  );
+
   registerRngService(app, ctx);
   registerRefereeService(app, ctx);
   registerCommentaryService(app, ctx);
@@ -168,7 +173,7 @@ async function bootstrap(): Promise<void> {
   registerReceiptRoutes(app, ctx);
   registerDiscoveryRoutes(app, ctx, registry);
   registerControlRoutes(app, ctx, controller);
-  registerPlayWebSocket(app, ctx);
+  registerPlayWebSocket(app, ctx, controller);
 
   app.setErrorHandler((err: unknown, _req, reply) => {
     const status = (err as { statusCode?: number }).statusCode ?? 500;

@@ -9,6 +9,8 @@ import type {
 
 const API = (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
+export const API_BASE = API;
+
 async function get<T>(path: string): Promise<T> {
   const res = await fetch(`${API}${path}`);
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
@@ -171,6 +173,8 @@ export interface TableDetail {
 }
 
 export const api = {
+  settlement: () =>
+    get<{ mode: string; onChain: boolean; signerAddress?: string; explorerUrl?: string }>('/settlement'),
   tables: () => get<{ tables: TableDTO[] }>('/tables'),
   table: (id: string) => get<TableDetail>(`/tables/${id}`),
   agents: () => get<{ agents: AgentRow[] }>('/agents'),
@@ -189,6 +193,21 @@ export const api = {
     post<{ ok: boolean; stopped?: boolean }>('/agents/stop', { clientId }),
   setAutopilot: (clientId: string, on: boolean) =>
     post<{ ok: boolean; mine?: MineStatus }>('/agents/autopilot', { clientId, on }),
+  seat: (tableId: string, key: { agentId?: string; did?: string }) =>
+    get<{
+      seated: boolean;
+      seatIndex: number | null;
+      agentId: string | null;
+      name: string | null;
+      sessionId: string | null;
+      address: string | null;
+      walletBalance: number;
+      currency: string;
+    }>(
+      `/tables/${tableId}/seat?${key.agentId ? `agentId=${encodeURIComponent(key.agentId)}` : ''}${key.did ? `did=${encodeURIComponent(key.did)}` : ''}`,
+    ),
+  leaveTable: (tableId: string, key: { agentId?: string; did?: string }) =>
+    post<{ ok: boolean; refunded?: number }>(`/tables/${tableId}/leave`, key),
   agentView: (tableId: string, agentId: string) =>
     get<{ view: AgentViewDTO | null }>(
       `/tables/${tableId}/view?agentId=${encodeURIComponent(agentId)}`,

@@ -6,9 +6,12 @@ import { api } from '../lib/api';
 import { useTableFeed } from '../lib/ws';
 import { archetypeColor } from '../lib/ui';
 import { PlayingCard, CardRow } from '../components/PlayingCard';
+import { TurnTimer } from '../components/TurnTimer';
 import { PlayerHand } from '../components/PlayerHand';
 import { BankrollPanel, fmtChips } from '../components/BankrollPanel';
 import { JoinTableModal } from '../components/JoinTableModal';
+import { JoinQR } from '../components/JoinQR';
+import { SpendLedger } from '../components/SpendLedger';
 import { useClientId } from '../lib/clientId';
 import { Panel, Empty } from '../components/primitives';
 
@@ -38,6 +41,8 @@ function SeatPod({
   isYou,
   blind,
   lastAction,
+  turnEndsAt,
+  turnMs,
 }: {
   seat: SeatDTO;
   isTurn: boolean;
@@ -45,13 +50,15 @@ function SeatPod({
   isYou?: boolean;
   blind?: 'SB' | 'BB' | null;
   lastAction?: string | null;
+  turnEndsAt?: number | null;
+  turnMs?: number | null;
 }) {
-  const empty = !seat.agentId;
-  const folded = seat.status === 'folded';
-  const tone = isYou ? '#e3344b' : archetypeColor(seat.archetype);
+  const empty = !seat || !seat.agentId;
+  const folded = seat?.status === 'folded';
+  const tone = isYou ? '#e3344b' : archetypeColor(seat?.archetype);
   // You always see your own hand face-up; everyone else is face-down.
   const cards: (string | null)[] = isYou ? (myCards ?? [null, null]) : [null, null];
-  const initial = (seat.agentName ?? '?').trim().charAt(0).toUpperCase() || '?';
+  const initial = (seat?.agentName ?? '?').trim().charAt(0).toUpperCase() || '?';
 
   if (empty) {
     return (
@@ -85,6 +92,9 @@ function SeatPod({
           boxShadow: isTurn ? '0 0 26px -6px rgba(227,52,75,0.6)' : undefined,
         }}
       >
+        {isTurn && turnEndsAt != null && turnMs != null && (
+          <TurnTimer endsAt={turnEndsAt} totalMs={turnMs} />
+        )}
         <span
           className="grid h-8 w-8 shrink-0 place-items-center rounded-full border font-display text-sm text-bone"
           style={{ borderColor: tone, background: 'rgba(0,0,0,0.35)' }}
@@ -168,17 +178,25 @@ export function TablePage() {
   const clientId = useClientId();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const detail = useQuery({ queryKey: ['table', id], queryFn: () => api.table(id), refetchInterval: 4000 });
-  const feed = useTableFeed(id);
+  const detail = useQuery({ queryKey: ['table', id], queryFn: () => api.table(id), refetchInterval: 8000 });
+  const { feed } = useTableFeed(id);
 
   const statusQ = useQuery({
     queryKey: ['agentStatus', clientId],
     queryFn: () => api.agentStatus(clientId),
-    refetchInterval: 2500,
+    refetchInterval: 5000,
   });
   const mine = statusQ.data?.mine ?? null;
   // Not seated yet → the join modal gates entry (pick a table & buy-in).
   const notSeated = statusQ.isSuccess && !mine;
+
+  // The player's live simUSD wallet balance — drains as seat/hand/action fees settle.
+  const seatQ = useQuery({
+    queryKey: ['myseat', id, mine?.agentId],
+    queryFn: () => api.seat(id, { agentId: mine!.agentId }),
+    enabled: !!mine?.agentId,
+    refetchInterval: 6000,
+  });
 
   const hand = feed.hand ?? detail.data?.hand ?? null;
   const refetchKey = `${hand?.handId ?? ''}:${hand?.street ?? ''}:${hand?.toActSeat ?? ''}:${hand?.board?.length ?? 0}`;
@@ -186,15 +204,15 @@ export function TablePage() {
     queryKey: ['myview', mine?.agentId, refetchKey],
     queryFn: () => api.agentView(id, mine!.agentId),
     enabled: !!mine?.agentId,
-    refetchInterval: 1500,
+    refetchInterval: 3000,
   });
   const myCards = myViewQ.data?.view?.isInHand ? myViewQ.data.view.holeCards : null;
   const seats: SeatDTO[] =
     hand?.seats && hand.seats.length
-      ? Array.from({ length: detail.data?.table.maxSeats ?? 6 }, (_, i) => {
+      ? Array.from({ length: detail.data?.table?.maxSeats ?? 6 }, (_, i) => {
           const s = hand.seats.find((x) => x.index === i);
           return (
-            s ?? (detail.data?.seats.find((x) => x.index === i) as SeatDTO) ?? ({ index: i, agentId: null } as SeatDTO)
+            s ?? (detail.data?.seats?.find((x) => x.index === i) as SeatDTO) ?? ({ index: i, agentId: null } as SeatDTO)
           );
         })
       : (detail.data?.seats ?? []);
@@ -237,7 +255,7 @@ export function TablePage() {
         <div className="flex items-baseline gap-2.5">
           <span className="font-mono text-[10px] uppercase tracking-widest3 text-bone-faint">Maison de Jeu</span>
           <h1 className="font-display text-2xl font-semibold tracking-tight text-bone">
-            {detail.data?.table.name ?? 'Table'}
+            {detail.data?.table?.name ?? 'Table'}
           </h1>
         </div>
         <div className="flex items-center gap-2.5">
@@ -287,7 +305,7 @@ export function TablePage() {
           {/* Center watermark */}
           <div className="pointer-events-none absolute left-1/2 top-[22%] -translate-x-1/2 -translate-y-1/2 text-center">
             <div className="script text-3xl text-bone/25 sm:text-4xl">
-              {detail.data?.table.name ?? 'Table 402'}
+              {detail.data?.table?.name ?? 'Table 402'}
             </div>
             <div className="mt-1 font-mono text-[9px] uppercase tracking-widest3 text-bone/20">Maison de Jeu</div>
           </div>
@@ -304,7 +322,7 @@ export function TablePage() {
           <div className="absolute left-1/2 top-[66%] -translate-x-1/2 -translate-y-1/2">
             <div className="flex items-center justify-center" style={{ gap: 10 }}>
               {communitySlots.map((c, i) => (
-                <CommunitySlot key={`${c ?? 'slot'}-${i}`} card={c} index={i} />
+                <CommunitySlot key={i} card={c} index={i} />
               ))}
             </div>
           </div>
@@ -323,6 +341,8 @@ export function TablePage() {
                 myCards={mine?.seatIndex === seat.index ? myCards : null}
                 blind={blinds[seat.index] ?? null}
                 lastAction={lastActionBySeat[seat.index] ?? null}
+                turnEndsAt={hand?.turnEndsAt ?? null}
+                turnMs={hand?.turnMs ?? null}
               />
             </div>
           ))}
@@ -336,10 +356,15 @@ export function TablePage() {
         </div>
       )}
 
-      {/* ── Bankroll + action flow + outcomes, underneath the table ──── */}
+      {/* ── Bankroll + MPP spend, underneath the table ──── */}
       {mine && (
-        <div className="pt-2">
+        <div className="grid gap-5 pt-2 lg:grid-cols-2">
           <BankrollPanel mine={mine} tick={feed.lastComplete?.handId ?? ''} />
+          <SpendLedger
+            payments={feed.payments}
+            agentId={mine.agentId}
+            walletBalance={seatQ.data?.walletBalance ?? null}
+          />
         </div>
       )}
       <div className="grid gap-5 lg:grid-cols-3">
@@ -371,7 +396,22 @@ export function TablePage() {
 
         <div className="space-y-5">
           {last && last.results.length > 0 && (
-            <Panel title="Last hand">
+            <Panel
+              title="Last hand"
+              right={
+                last.winners.length > 1 ? (
+                  <span className="chip border-crimson-bright/50 text-crimson-bright">
+                    {last.split && last.potCount > 1
+                      ? 'split + side pots'
+                      : last.split
+                        ? `split pot · ${last.winners.length} ways`
+                        : 'side pots'}
+                  </span>
+                ) : !last.showdown ? (
+                  <span className="chip border-hairline text-bone-faint">won uncontested</span>
+                ) : null
+              }
+            >
               {last.board.length > 0 && (
                 <div className="mb-3 flex items-center gap-2.5">
                   <span className="label">Board</span>
@@ -417,6 +457,8 @@ export function TablePage() {
               ))}
             </div>
           </Panel>
+
+          <JoinQR tableId={id} />
         </div>
       </div>
 

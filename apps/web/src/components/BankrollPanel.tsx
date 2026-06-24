@@ -24,7 +24,7 @@ export function BankrollPanel({ mine, tick }: { mine: MineStatus; tick: string }
   const q = useQuery({
     queryKey: ['pnl', mine.agentId, tick],
     queryFn: () => api.pnl(mine.agentId),
-    refetchInterval: 4000,
+    refetchInterval: 8000,
   });
   const d = q.data;
 

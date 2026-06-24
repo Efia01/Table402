@@ -62,6 +62,10 @@ export const HandStateDTO = z.object({
   buttonSeat: z.number().int(),
   smallBlind: z.number().int(),
   bigBlind: z.number().int(),
+  /** Epoch ms when the acting player's deadline expires (null between turns). */
+  turnEndsAt: z.number().int().nullable().optional(),
+  /** Total length (ms) of the current turn window, for sizing the countdown ring. */
+  turnMs: z.number().int().nullable().optional(),
 });
 export type HandStateDTO = z.infer<typeof HandStateDTO>;
 
@@ -189,9 +193,32 @@ export const WsEvent = z.discriminatedUnion('type', [
         bankrollAfter: z.number().int(),
       }),
     ),
+    /** Number of pots awarded (>1 ⇒ side pots), and whether any single pot was split (a tie). */
+    potCount: z.number().int().optional(),
+    split: z.boolean().optional(),
+    showdown: z.boolean().optional(),
   }),
   z.object({ type: z.literal('graph'), handId: z.string() }),
   z.object({ type: z.literal('table-idle') }),
   z.object({ type: z.literal('log'), level: z.enum(['info', 'warn', 'error']), message: z.string() }),
+  z.object({
+    type: z.literal('retreat-complete'),
+    clientId: z.string(),
+    agentId: z.string(),
+    mode: z.enum(['retreat', 'sit-out']),
+    refunded: z.number().int(),
+    currency: z.string(),
+  }),
+  z.object({
+    type: z.literal('retreat-error'),
+    clientId: z.string(),
+    message: z.string(),
+  }),
 ]);
 export type WsEvent = z.infer<typeof WsEvent>;
+
+export const WsCommand = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('retreat'), clientId: z.string() }),
+  z.object({ type: z.literal('sit-out'), clientId: z.string() }),
+]);
+export type WsCommand = z.infer<typeof WsCommand>;

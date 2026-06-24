@@ -4,19 +4,23 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { formatUsd, archetypeColor, shorten } from '../lib/ui';
 import { Panel, Stat, Empty } from '../components/primitives';
+import { SettlementBadge } from '../components/SettlementBadge';
 
 export function LobbyPage() {
-  const tables = useQuery({ queryKey: ['tables'], queryFn: api.tables, refetchInterval: 3000 });
-  const agents = useQuery({ queryKey: ['agents'], queryFn: api.agents, refetchInterval: 3000 });
+  const tables = useQuery({ queryKey: ['tables'], queryFn: api.tables, refetchInterval: 6000 });
+  const agents = useQuery({ queryKey: ['agents'], queryFn: api.agents, refetchInterval: 6000 });
   const discovery = useQuery({ queryKey: ['discovery'], queryFn: api.discovery, refetchInterval: 30000 });
 
   const table = tables.data?.tables[0];
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Lobby</h1>
-        <p className="text-sm text-mute">Open tables, live pricing, the agents in the arena, and discovered services.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Lobby</h1>
+          <p className="text-sm text-mute">Open tables, live pricing, the agents in the arena, and discovered services.</p>
+        </div>
+        <SettlementBadge />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -107,30 +111,37 @@ export function LobbyPage() {
             }
           >
             <div className="space-y-2">
-              {discovery.data?.services.slice(0, 16).map((s) => (
-                <div key={s.id} className="glass-soft px-3 py-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="truncate text-sm font-medium">{s.name}</div>
-                    <span
-                      className="chip shrink-0"
-                      style={{
-                        color: s.source === 'local' ? '#38e0c8' : '#a78bfa',
-                        borderColor: s.source === 'local' ? '#38e0c855' : '#a78bfa55',
-                        background: s.source === 'local' ? '#38e0c814' : '#a78bfa14',
-                      }}
-                    >
-                      {s.source}
-                    </span>
+              {(discovery.data?.services ?? [])
+                .filter((s) => s.source === 'local')
+                .map((s) => (
+                  <div key={s.id} className="glass-soft px-3 py-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate text-sm font-medium">{s.name}</div>
+                      <span
+                        className="chip shrink-0"
+                        style={{ color: '#38e0c8', borderColor: '#38e0c855', background: '#38e0c814' }}
+                      >
+                        Table402
+                      </span>
+                    </div>
+                    <div className="truncate text-xs text-mute">{s.categories.join(' · ') || s.description}</div>
+                    {s.priceHint && <div className="mt-0.5 font-mono text-[11px] text-ghost">{s.priceHint}</div>}
                   </div>
-                  <div className="truncate text-xs text-mute">{s.categories.join(' · ') || s.description}</div>
-                  {s.priceHint && <div className="mt-0.5 font-mono text-[11px] text-ghost">{s.priceHint}</div>}
-                </div>
-              ))}
+                ))}
               {!discovery.data && <Empty>Discovering services…</Empty>}
             </div>
-            <div className="mt-3 text-[11px] text-ghost">
-              Local services always available; remote entries pulled from mpp.dev when reachable.
-            </div>
+            {(() => {
+              const remote = (discovery.data?.services ?? []).filter((s) => s.source !== 'local').length;
+              return remote > 0 ? (
+                <div className="mt-3 text-[11px] text-ghost">
+                  These are the paid services the table buys each hand. +{remote} more discoverable on the public mpp.dev registry.
+                </div>
+              ) : (
+                <div className="mt-3 text-[11px] text-ghost">
+                  The paid services the table buys each hand (RNG · referee · commentary).
+                </div>
+              );
+            })()}
           </Panel>
         </div>
       </div>

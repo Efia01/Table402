@@ -206,8 +206,12 @@ export class AgentRuntime {
       if (key === this.lastTurnKey) return;
       const decision = decide(this.spec.archetype, view);
 
-      // Human-ish pause before acting — paces the game to a real-time speed.
-      const think = this.thinkMin + Math.random() * Math.max(0, this.thinkMax - this.thinkMin);
+      // Pace to the server's per-turn clock so the action lands exactly when the
+      // UI countdown ring empties. Fall back to a local pause if unavailable.
+      const think =
+        view.turnEndsAt != null
+          ? Math.max(0, view.turnEndsAt - Date.now())
+          : this.thinkMin + Math.random() * Math.max(0, this.thinkMax - this.thinkMin);
       await sleep(think);
       if (this.stopped || this.seatIndex == null) return;
 

@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { DEFAULT_TABLE } from '@table402/shared';
 import { JoinTableModal } from '../components/JoinTableModal';
+import { useWallet } from '../lib/WalletProvider';
+import { hasInjectedWallet, shortAddress } from '../lib/wallet';
 
 /** The maison mark — 4 0 · 2, rendered as huge lit Bodoni numerals. */
 function MaisonMark() {
@@ -19,6 +22,18 @@ function MaisonMark() {
 
 export function LandingPage() {
   const [joinOpen, setJoinOpen] = useState(false);
+  const wallet = useWallet();
+  const navigate = useNavigate();
+
+  async function enter() {
+    if (!wallet.isConnected) {
+      if (hasInjectedWallet()) await wallet.connect();
+      else wallet.connectBurner();
+      return;
+    }
+    navigate('/lobby');
+  }
+
   return (
     <section className="spotlight-stage relative flex min-h-screen w-screen flex-col items-center justify-center overflow-hidden px-6 text-center">
       {/* The crimson maison frame ringing the page */}
@@ -107,10 +122,24 @@ export function LandingPage() {
         transition={{ duration: 0.6, delay: 0.5 }}
         className="relative z-10 mt-7"
       >
-        <button onClick={() => setJoinOpen(true)} className="btn-hero group">
-          Enter the Salon
-          <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
-        </button>
+        <div className="flex flex-col items-center gap-3">
+          <button onClick={() => void enter()} disabled={wallet.isConnecting} className="btn-hero group disabled:opacity-50">
+            {wallet.isConnecting
+              ? 'Connecting…'
+              : wallet.isConnected
+                ? 'Enter the Salon'
+                : hasInjectedWallet()
+                  ? 'Connect & Enter'
+                  : 'Create a wallet & Enter'}
+            <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
+          </button>
+          {wallet.isConnected && wallet.address && (
+            <span className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-widest2 text-bone-faint">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
+              {wallet.isBurner ? 'burner' : 'wallet'} · {shortAddress(wallet.address)}
+            </span>
+          )}
+        </div>
       </motion.div>
 
       {/* Footer ledger row */}
